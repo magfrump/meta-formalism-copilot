@@ -36,9 +36,9 @@ export default function OutputPanel({ semiformalText, onSemiformalTextChange, se
   const [editing, setEditing] = useState(false);
   const [renderMode, setRenderMode] = useState<"rendered" | "raw">("rendered");
 
-  // Switch back to rendered view whenever new semiformal content arrives
+  // Switch back to rendered view when new semiformal content arrives, but not while user is editing (raw mode)
   useEffect(() => {
-    if (semiformalText) setRenderMode("rendered");
+    if (semiformalText && renderMode !== "raw") setRenderMode("rendered");
   }, [semiformalText]);
 
   const handleToggleEdit = useCallback(() => {
