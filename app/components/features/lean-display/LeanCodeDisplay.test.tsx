@@ -82,7 +82,7 @@ describe('LeanCodeDisplay', () => {
         verificationErrors="error"
       />
     )
-    expect(screen.getByText('Re-verify')).toBeInTheDocument()
+    expect(screen.getByText('Re-verify ↺')).toBeInTheDocument()
   })
 
   it('calls onReVerify when Re-verify is clicked', async () => {
@@ -95,7 +95,7 @@ describe('LeanCodeDisplay', () => {
         verificationErrors="error"
       />
     )
-    await userEvent.click(screen.getByText('Re-verify'))
+    await userEvent.click(screen.getByText('Re-verify ↺'))
     expect(onReVerify).toHaveBeenCalledOnce()
   })
 
@@ -108,7 +108,7 @@ describe('LeanCodeDisplay', () => {
         verificationErrors="error"
       />
     )
-    expect(screen.getByText('Re-verify')).toBeDisabled()
+    expect(screen.getByText('Re-verify ↺')).toBeDisabled()
   })
 
   it('shows the iteration bar when code is present', () => {
