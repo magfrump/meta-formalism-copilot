@@ -21,17 +21,29 @@ export default function IconRail({ panels, activePanelId, onSelectPanel }: IconR
         width: expanded ? "var(--rail-expanded-width)" : "var(--rail-width)",
         background: "var(--rail-bg)",
       }}
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
       aria-label="Panel navigation"
     >
+      {/* Toggle expand/collapse */}
+      <button
+        onClick={() => setExpanded((prev) => !prev)}
+        className="flex items-center justify-center border-b border-[#DDD9D5] px-3 py-2 text-[#6B6560] hover:text-[var(--ink-black)] transition-colors"
+        aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          {expanded
+            ? <polyline points="10 3 5 8 10 13" />
+            : <polyline points="6 3 11 8 6 13" />
+          }
+        </svg>
+      </button>
+
       {visiblePanels.map((panel) => {
         const isActive = panel.id === activePanelId;
         return (
           <button
             key={panel.id}
             onClick={() => onSelectPanel(panel.id)}
-            title={panel.label}
+            title={expanded ? undefined : panel.label}
             className={`
               group relative flex items-center gap-3 px-3 py-3 text-left transition-colors
               ${isActive
