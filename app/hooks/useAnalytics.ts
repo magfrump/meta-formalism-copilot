@@ -1,12 +1,27 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import type { LlmUsage, AnalyticsEntry, AnalyticsSummary } from "@/app/lib/types/analytics";
 
 let nextId = 1;
 
 export function useAnalytics() {
   const [entries, setEntries] = useState<AnalyticsEntry[]>([]);
+
+  // Hydrate from persisted analytics on mount
+  useEffect(() => {
+    fetch("/api/analytics")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data.entries) && data.entries.length > 0) {
+          setEntries(data.entries);
+          nextId = data.entries.length + 1;
+        }
+      })
+      .catch(() => {
+        // Persistence unavailable — continue with empty state
+      });
+  }, []);
 
   const recordUsage = useCallback((usage: LlmUsage) => {
     setEntries((prev) => [
@@ -17,6 +32,9 @@ export function useAnalytics() {
 
   const clearAnalytics = useCallback(() => {
     setEntries([]);
+    fetch("/api/analytics", { method: "DELETE" }).catch(() => {
+      // Persistence unavailable — local state already cleared
+    });
   }, []);
 
   const summary: AnalyticsSummary = useMemo(() => {
