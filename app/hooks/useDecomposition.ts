@@ -60,5 +60,18 @@ export function useDecomposition() {
     }));
   }, []);
 
-  return { state, selectedNode, extractPropositions, selectNode, updateNode };
+  /** Restore persisted decomposition state (called once on mount) */
+  const resetState = useCallback(
+    (restored: { nodes: PropositionNode[]; selectedNodeId: string | null; paperText: string }) => {
+      setState({
+        nodes: restored.nodes,
+        selectedNodeId: restored.selectedNodeId,
+        paperText: restored.paperText,
+        extractionStatus: restored.nodes.length > 0 ? "done" : "idle",
+      });
+    },
+    [],
+  );
+
+  return { state, selectedNode, extractPropositions, selectNode, updateNode, resetState };
 }

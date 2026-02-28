@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { PanelDef, PanelId } from "@/app/lib/types/panels";
 import PanelShell from "@/app/components/layout/PanelShell";
 import SourcePanel from "@/app/components/panels/SourcePanel";
@@ -10,6 +10,7 @@ import LeanPanel from "@/app/components/panels/LeanPanel";
 import GraphPanel from "@/app/components/panels/GraphPanel";
 import NodeDetailPanel from "@/app/components/panels/NodeDetailPanel";
 import { useDecomposition } from "@/app/hooks/useDecomposition";
+import { useWorkspacePersistence } from "@/app/hooks/useWorkspacePersistence";
 import { gatherDependencyContext } from "@/app/lib/utils/leanContext";
 import {
   SourceIcon,
@@ -50,20 +51,43 @@ export default function Home() {
   // --- Panel navigation ---
   const [activePanelId, setActivePanelId] = useState<PanelId>("source");
 
-  // --- Global single-proof state ---
-  const [sourceText, setSourceText] = useState("");
-  const [extractedFiles, setExtractedFiles] = useState<{ name: string; text: string }[]>([]);
-  const [contextText, setContextText] = useState("");
-  const [semiformalText, setSemiformalText] = useState("");
-  const [leanCode, setLeanCode] = useState("");
-  const [semiformalDirty, setSemiformalDirty] = useState(false);
+  // --- Persisted state (survives page refresh) ---
+  const {
+    sourceText, setSourceText,
+    extractedFiles, setExtractedFiles,
+    contextText, setContextText,
+    semiformalText, setSemiformalText,
+    leanCode, setLeanCode,
+    semiformalDirty, setSemiformalDirty,
+    verificationStatus, setVerificationStatus,
+    verificationErrors, setVerificationErrors,
+    restoredDecompState, persistDecompState,
+  } = useWorkspacePersistence();
+
+  // --- Ephemeral state (not persisted) ---
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("idle");
-  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("none");
-  const [verificationErrors, setVerificationErrors] = useState("");
 
   // --- Decomposition state ---
-  const { state: decomp, selectedNode, extractPropositions, selectNode, updateNode } = useDecomposition();
+  const { state: decomp, selectedNode, extractPropositions, selectNode, updateNode, resetState: resetDecomp } = useDecomposition();
   const isDecompMode = decomp.nodes.length > 0 && selectedNode !== null;
+
+  // Restore decomposition from localStorage once on mount
+  const decompRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!decompRestoredRef.current && restoredDecompState) {
+      decompRestoredRef.current = true;
+      resetDecomp(restoredDecompState);
+    }
+  }, [restoredDecompState, resetDecomp]);
+
+  // Keep persistence layer in sync with decomposition changes
+  useEffect(() => {
+    persistDecompState({
+      nodes: decomp.nodes,
+      selectedNodeId: decomp.selectedNodeId,
+      paperText: decomp.paperText,
+    });
+  }, [decomp.nodes, decomp.selectedNodeId, decomp.paperText, persistDecompState]);
 
   // When in decomposition mode, the semiformal/lean panels show selected node's data
   const activeSemiformal = isDecompMode ? selectedNode!.semiformalProof : semiformalText;
@@ -90,7 +114,7 @@ export default function Home() {
       setSemiformalText(text);
       setSemiformalDirty((prev) => prev || leanCode !== "");
     }
-  }, [isDecompMode, selectedNode, updateNode, leanCode]);
+  }, [isDecompMode, selectedNode, updateNode, leanCode, setSemiformalText, setSemiformalDirty]);
 
   const handleLeanCodeChange = useCallback((code: string) => {
     if (isDecompMode && selectedNode) {
@@ -98,7 +122,7 @@ export default function Home() {
     } else {
       setLeanCode(code);
     }
-  }, [isDecompMode, selectedNode, updateNode]);
+  }, [isDecompMode, selectedNode, updateNode, setLeanCode]);
 
   /** Global single-proof formalization pipeline */
   const handleFormalise = useCallback(async () => {
@@ -160,7 +184,7 @@ export default function Home() {
     } finally {
       setLoadingPhase("idle");
     }
-  }, [combinedPaperText, semiformalText, leanCode]);
+  }, [combinedPaperText, semiformalText, leanCode, setSemiformalText, setLeanCode, setSemiformalDirty, setVerificationStatus, setVerificationErrors]);
 
   /** Per-node formalization (decomposition mode) */
   const handleNodeFormalise = useCallback(async () => {
@@ -271,7 +295,7 @@ export default function Home() {
     } finally {
       setLoadingPhase("idle");
     }
-  }, [isDecompMode, selectedNode, leanCode, decomp.nodes, updateNode]);
+  }, [isDecompMode, selectedNode, leanCode, decomp.nodes, updateNode, setVerificationStatus, setVerificationErrors]);
 
   const handleLeanIterate = useCallback(async (instruction: string) => {
     const currentSemiformal = isDecompMode && selectedNode ? selectedNode.semiformalProof : semiformalText;
@@ -332,7 +356,7 @@ export default function Home() {
     } finally {
       setLoadingPhase("idle");
     }
-  }, [isDecompMode, selectedNode, semiformalText, leanCode, verificationErrors, decomp.nodes, updateNode]);
+  }, [isDecompMode, selectedNode, semiformalText, leanCode, verificationErrors, decomp.nodes, updateNode, setSemiformalDirty, setVerificationStatus, setVerificationErrors, setLeanCode]);
 
   const handleRegenerateLean = useCallback(() => {
     handleLeanIterate("");
@@ -474,6 +498,7 @@ export default function Home() {
     loadingPhase, activeVerificationStatus, activeVerificationErrors,
     semiformalDirty, isDecompMode, decomp,
     selectedNode, selectedNodeDeps, combinedPaperText,
+    setSourceText, setExtractedFiles, setContextText,
     handleFormalise, handleSemiformalTextChange, handleLeanCodeChange,
     handleRegenerateLean, handleReVerify, handleLeanIterate,
     handleSelectNode, handleDecompose, handleNodeFormalise,
