@@ -9,9 +9,10 @@ import { downloadSemiformalAsMarkdown } from "@/app/lib/utils/export";
 type SemiformalPanelProps = {
   semiformalText: string;
   onSemiformalTextChange: (value: string) => void;
+  sessionBanner?: React.ReactNode;
 };
 
-export default function SemiformalPanel({ semiformalText, onSemiformalTextChange }: SemiformalPanelProps) {
+export default function SemiformalPanel({ semiformalText, onSemiformalTextChange, sessionBanner }: SemiformalPanelProps) {
   const [editing, setEditing] = useState(false);
   const [renderMode, setRenderMode] = useState<"rendered" | "raw">("rendered");
 
@@ -81,12 +82,15 @@ export default function SemiformalPanel({ semiformalText, onSemiformalTextChange
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--ink-black)]">
           Semiformal Proof
         </h2>
-        {semiformalText && (
-          <DownloadButton
-            label="Export .md"
-            onClick={() => downloadSemiformalAsMarkdown(semiformalText)}
-          />
-        )}
+        <div className="flex items-center gap-2">
+          {sessionBanner}
+          {semiformalText && (
+            <DownloadButton
+              label="Export .md"
+              onClick={() => downloadSemiformalAsMarkdown(semiformalText)}
+            />
+          )}
+        </div>
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
