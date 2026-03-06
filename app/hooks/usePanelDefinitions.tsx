@@ -47,8 +47,8 @@ export function usePanelDefinitions(opts: PanelDefsInput): PanelDef[] {
       ].filter(Boolean).join(" · "),
     },
     {
-      id: "graph" as PanelId,
-      label: "Proof Graph",
+      id: "decomposition" as PanelId,
+      label: "Decomposition",
       icon: <GraphIcon />,
       statusSummary: hasDecomp
         ? `${nodes.filter((n) => n.verificationStatus === "verified").length}/${nodes.length} verified`

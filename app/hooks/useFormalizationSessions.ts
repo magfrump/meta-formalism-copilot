@@ -54,6 +54,7 @@ export function useFormalizationSessions(onRestore?: SessionRestoreHandler) {
       leanCode: "",
       verificationStatus: "none",
       verificationErrors: "",
+      artifacts: [],
     };
 
     let runNumber = 1;
