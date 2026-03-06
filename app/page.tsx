@@ -289,13 +289,14 @@ export default function Home() {
         { text: nodeText },
       );
       updateNode(selectedNode.id, { semiformalProof: semiformalData.proof, verificationStatus: "unverified" });
+      if (activeSession) updateSession(activeSession.id, { semiformalText: semiformalData.proof });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Request failed";
       updateNode(selectedNode.id, { verificationStatus: "failed", verificationErrors: msg });
     } finally {
       setLoadingPhase("idle");
     }
-  }, [selectedNode, updateNode, createSession]);
+  }, [selectedNode, updateNode, createSession, activeSession, updateSession]);
 
   /** Per-node: Lean generation + verification retry loop */
   const handleNodeGenerateLean = useCallback(async () => {
@@ -489,7 +490,7 @@ export default function Home() {
       setVerificationErrors(target.verificationErrors);
       setSemiformalDirty(false);
     }
-  }, [selectSession, currentScopeSessions, isDecompMode, selectedNode, updateNode]);
+  }, [selectSession, currentScopeSessions, isDecompMode, selectedNode, updateNode, setSemiformalText, setLeanCode, setVerificationStatus, setVerificationErrors, setSemiformalDirty]);
 
   // Graph panel handlers
   const handleDecompose = useCallback(() => {
@@ -593,7 +594,8 @@ export default function Home() {
     });
   }, [semiformalText, leanCode, decomp.nodes]);
 
-  // --- Session banner ---
+  // --- Panel content map ---
+  const panelContent: Partial<Record<PanelId, React.ReactNode>> = useMemo(() => {
   const sessionBannerElement = currentScopeActiveSession ? (
     <SessionBanner
       currentSession={currentScopeActiveSession}
@@ -602,8 +604,7 @@ export default function Home() {
     />
   ) : null;
 
-  // --- Panel content map ---
-  const panelContent: Partial<Record<PanelId, React.ReactNode>> = useMemo(() => ({
+  return ({
     source: (
       <InputPanel
         sourceText={sourceText}
@@ -671,7 +672,7 @@ export default function Home() {
         endpointPriors={ENDPOINT_PRIORS}
       />
     ),
-  }), [
+  });}, [
     sourceText, extractedFiles, contextText, activeSemiformal, activeLeanCode,
     loadingPhase, activeVerificationStatus, activeVerificationErrors,
     semiformalDirty, semiformalReadyForLean, isDecompMode, decomp, queueRunning,
@@ -681,7 +682,7 @@ export default function Home() {
     handleGenerateSemiformal, handleGenerateLean, handleSemiformalTextChange, handleLeanCodeChange,
     handleRegenerateLean, handleReVerify, handleLeanIterate,
     handleSelectNode, handleDecompose, handleNodeGenerateSemiformal, handleNodeGenerateLean,
-    sessionBannerElement,
+    currentScopeActiveSession, currentScopeSessions, handleSelectSession,
   ]);
 
   return (
