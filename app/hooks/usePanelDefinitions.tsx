@@ -8,6 +8,7 @@ import {
   LeanIcon,
   GraphIcon,
   NodeDetailIcon,
+  CausalGraphIcon,
   AnalyticsIcon,
 } from "@/app/components/ui/icons/PanelIcons";
 
@@ -22,6 +23,8 @@ type PanelDefsInput = {
   semiformalReadyForLean: boolean;
   nodes: PropositionNode[];
   selectedNode: PropositionNode | null;
+  hasCausalGraph?: boolean;
+  causalGraphLoading?: boolean;
 };
 
 export function usePanelDefinitions(opts: PanelDefsInput): PanelDef[] {
@@ -30,6 +33,7 @@ export function usePanelDefinitions(opts: PanelDefsInput): PanelDef[] {
     activeSemiformal, activeLeanCode, loadingPhase,
     activeVerificationStatus, semiformalReadyForLean,
     nodes, selectedNode,
+    hasCausalGraph, causalGraphLoading,
   } = opts;
 
   const hasDecomp = nodes.length > 0;
@@ -86,11 +90,19 @@ export function usePanelDefinitions(opts: PanelDefsInput): PanelDef[] {
             : "No code yet",
     },
     {
+      id: "causal-graph" as PanelId,
+      label: "Causal Graph",
+      icon: <CausalGraphIcon />,
+      statusSummary: causalGraphLoading ? "Generating..." : hasCausalGraph ? "Graph ready" : "No graph yet",
+      hidden: !hasCausalGraph && !causalGraphLoading,
+    },
+    {
       id: "analytics" as PanelId,
       label: "LLM Usage",
       icon: <AnalyticsIcon />,
       statusSummary: "Cost estimates",
     },
   ], [sourceText, extractedFiles, contextText, activeSemiformal, activeLeanCode,
-      loadingPhase, activeVerificationStatus, semiformalReadyForLean, hasDecomp, nodes, selectedNode]);
+      loadingPhase, activeVerificationStatus, semiformalReadyForLean, hasDecomp, nodes, selectedNode,
+      hasCausalGraph, causalGraphLoading]);
 }

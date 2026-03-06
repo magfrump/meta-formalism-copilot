@@ -8,6 +8,7 @@ import PanelShell from "@/app/components/layout/PanelShell";
 import InputPanel from "@/app/components/panels/InputPanel";
 import SemiformalPanel from "@/app/components/panels/SemiformalPanel";
 import LeanPanel from "@/app/components/panels/LeanPanel";
+import CausalGraphPanel from "@/app/components/panels/CausalGraphPanel";
 import GraphPanel from "@/app/components/panels/GraphPanel";
 import NodeDetailPanel from "@/app/components/panels/NodeDetailPanel";
 import AnalyticsPanel from "@/app/components/panels/AnalyticsPanel";
@@ -38,6 +39,10 @@ export default function Home() {
     verificationErrors, setVerificationErrors,
     restoredDecompState, persistDecompState,
   } = useWorkspacePersistence();
+
+  // --- Causal graph state ---
+  const [causalGraph, setCausalGraph] = useState<import("@/app/lib/types/artifacts").CausalGraphResponse["causalGraph"] | null>(null);
+  const [causalGraphLoading, setCausalGraphLoading] = useState(false);
 
   // --- Decomposition state ---
   const { state: decomp, selectedNode, extractPropositions, selectNode, updateNode, resetState: resetDecomp } = useDecomposition();
@@ -261,12 +266,46 @@ export default function Home() {
       .filter((n): n is NonNullable<typeof n> => n != null);
   }, [selectedNode, decomp.nodes]);
 
+  // --- Causal graph generation ---
+  const handleGenerateCausalGraph = useCallback(async () => {
+    const text = isDecompMode && selectedNode
+      ? `${selectedNode.statement}\n\n${selectedNode.proofText}`
+      : combinedPaperText;
+    if (!text.trim()) return;
+    setCausalGraphLoading(true);
+    setActivePanelId("causal-graph");
+    try {
+      const response = await fetch("/api/formalization/causal-graph", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceText: text,
+          context: contextText,
+          nodeId: selectedNode?.id,
+          nodeLabel: selectedNode?.label,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok && data.causalGraph) {
+        setCausalGraph(data.causalGraph);
+      } else {
+        console.error("[causal-graph]", data.error);
+      }
+    } catch (err) {
+      console.error("[causal-graph]", err);
+    } finally {
+      setCausalGraphLoading(false);
+    }
+  }, [isDecompMode, selectedNode, combinedPaperText, contextText]);
+
   // --- Panel definitions ---
   const panels = usePanelDefinitions({
     sourceText, extractedFiles, contextText,
     activeSemiformal, activeLeanCode, loadingPhase,
     activeVerificationStatus, semiformalReadyForLean,
     nodes: decomp.nodes, selectedNode,
+    hasCausalGraph: causalGraph !== null,
+    causalGraphLoading,
   });
 
   // --- Export All handler ---
@@ -355,6 +394,12 @@ export default function Home() {
         loading={loadingPhase !== "idle" || queueRunning}
       />
     ) : undefined,
+    "causal-graph": (
+      <CausalGraphPanel
+        causalGraph={causalGraph}
+        loading={causalGraphLoading}
+      />
+    ),
     analytics: (
       <AnalyticsPanel
         endpointPriors={ENDPOINT_PRIORS}
@@ -371,6 +416,7 @@ export default function Home() {
     activePipeline,
     handleSelectNode, handleDecompose, handleNodeGenerateSemiformal, handleNodeGenerateLean,
     activeSession, allSessionsSorted, selectAndRestore,
+    causalGraph, causalGraphLoading,
   ]);
 
   return (
