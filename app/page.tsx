@@ -9,6 +9,9 @@ import InputPanel from "@/app/components/panels/InputPanel";
 import SemiformalPanel from "@/app/components/panels/SemiformalPanel";
 import LeanPanel from "@/app/components/panels/LeanPanel";
 import CausalGraphPanel from "@/app/components/panels/CausalGraphPanel";
+import StatisticalModelPanel from "@/app/components/panels/StatisticalModelPanel";
+import PropertyTestsPanel from "@/app/components/panels/PropertyTestsPanel";
+import DialecticalMapPanel from "@/app/components/panels/DialecticalMapPanel";
 import GraphPanel from "@/app/components/panels/GraphPanel";
 import NodeDetailPanel from "@/app/components/panels/NodeDetailPanel";
 import AnalyticsPanel from "@/app/components/panels/AnalyticsPanel";
@@ -43,6 +46,14 @@ export default function Home() {
   // --- Causal graph state ---
   const [causalGraph, setCausalGraph] = useState<import("@/app/lib/types/artifacts").CausalGraphResponse["causalGraph"] | null>(null);
   const [causalGraphLoading, setCausalGraphLoading] = useState(false);
+
+  // --- New artifact states ---
+  const [statisticalModel, setStatisticalModel] = useState<import("@/app/lib/types/artifacts").StatisticalModelResponse["statisticalModel"] | null>(null);
+  const [statisticalModelLoading, setStatisticalModelLoading] = useState(false);
+  const [propertyTests, setPropertyTests] = useState<import("@/app/lib/types/artifacts").PropertyTestsResponse["propertyTests"] | null>(null);
+  const [propertyTestsLoading, setPropertyTestsLoading] = useState(false);
+  const [dialecticalMap, setDialecticalMap] = useState<import("@/app/lib/types/artifacts").DialecticalMapResponse["dialecticalMap"] | null>(null);
+  const [dialecticalMapLoading, setDialecticalMapLoading] = useState(false);
 
   // --- Decomposition state ---
   const { state: decomp, selectedNode, extractPropositions, selectNode, updateNode, resetState: resetDecomp } = useDecomposition();
@@ -306,6 +317,12 @@ export default function Home() {
     nodes: decomp.nodes, selectedNode,
     hasCausalGraph: causalGraph !== null,
     causalGraphLoading,
+    hasStatisticalModel: statisticalModel !== null,
+    statisticalModelLoading,
+    hasPropertyTests: propertyTests !== null,
+    propertyTestsLoading,
+    hasDialecticalMap: dialecticalMap !== null,
+    dialecticalMapLoading,
   });
 
   // --- Export All handler ---
@@ -369,7 +386,7 @@ export default function Home() {
         sessionBanner={sessionBannerElement}
       />
     ),
-    graph: (
+    decomposition: (
       <GraphPanel
         propositions={decomp.nodes}
         selectedNodeId={decomp.selectedNodeId}
@@ -400,6 +417,24 @@ export default function Home() {
         loading={causalGraphLoading}
       />
     ),
+    "statistical-model": (
+      <StatisticalModelPanel
+        statisticalModel={statisticalModel}
+        loading={statisticalModelLoading}
+      />
+    ),
+    "property-tests": (
+      <PropertyTestsPanel
+        propertyTests={propertyTests}
+        loading={propertyTestsLoading}
+      />
+    ),
+    "dialectical-map": (
+      <DialecticalMapPanel
+        dialecticalMap={dialecticalMap}
+        loading={dialecticalMapLoading}
+      />
+    ),
     analytics: (
       <AnalyticsPanel
         endpointPriors={ENDPOINT_PRIORS}
@@ -417,6 +452,9 @@ export default function Home() {
     handleSelectNode, handleDecompose, handleNodeGenerateSemiformal, handleNodeGenerateLean,
     activeSession, allSessionsSorted, selectAndRestore,
     causalGraph, causalGraphLoading,
+    statisticalModel, statisticalModelLoading,
+    propertyTests, propertyTestsLoading,
+    dialecticalMap, dialecticalMapLoading,
   ]);
 
   return (
