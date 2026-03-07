@@ -5,6 +5,15 @@ import { getCachedResult, setCachedResult } from "./cache";
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6";
 
+// Lazy-initialized Anthropic client — reused across calls
+let _anthropicClient: Anthropic | null = null;
+function getAnthropicClient(apiKey: string): Anthropic {
+  if (!_anthropicClient) {
+    _anthropicClient = new Anthropic({ apiKey });
+  }
+  return _anthropicClient;
+}
+
 export class OpenRouterError extends Error {
   status: number;
   details: string;
@@ -77,7 +86,7 @@ export async function callLlm({
   if (anthropicKey) {
     const model = anthropicModel ?? DEFAULT_ANTHROPIC_MODEL;
     const start = Date.now();
-    const client = new Anthropic({ apiKey: anthropicKey });
+    const client = getAnthropicClient(anthropicKey);
     const message = await client.messages.create({
       model,
       max_tokens: maxTokens,
