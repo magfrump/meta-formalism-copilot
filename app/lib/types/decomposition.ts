@@ -1,10 +1,26 @@
-export type PropositionKind =
+export type NodeKind =
+  // Mathematical (used by TeX/PDF fast-path parsers)
   | "definition"
   | "lemma"
   | "theorem"
   | "proposition"
   | "corollary"
-  | "axiom";
+  | "axiom"
+  // Argumentative
+  | "claim"
+  | "evidence"
+  | "assumption"
+  | "objection"
+  | "rebuttal"
+  // Structural
+  | "question"
+  | "observation"
+  | "narrative"
+  | "methodology"
+  | "conclusion";
+
+/** @deprecated Use NodeKind instead */
+export type PropositionKind = NodeKind;
 
 export type NodeVerificationStatus =
   | "unverified"
@@ -52,7 +68,7 @@ export type NodeArtifact = {
 export type PropositionNode = {
   id: string;
   label: string;
-  kind: PropositionKind;
+  kind: NodeKind;
   statement: string;
   proofText: string;
   dependsOn: string[];
