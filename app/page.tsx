@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { PanelId } from "@/app/lib/types/panels";
+import type { ArtifactType } from "@/app/lib/types/session";
 import type { SourceDocument } from "@/app/lib/types/decomposition";
 import type { FormalizationSession } from "@/app/lib/types/session";
 import PanelShell from "@/app/components/layout/PanelShell";
@@ -23,6 +24,7 @@ import { useFormalizationSessions } from "@/app/hooks/useFormalizationSessions";
 import { useFormalizationPipeline } from "@/app/hooks/useFormalizationPipeline";
 import { useActiveArtifactState } from "@/app/hooks/useActiveArtifactState";
 import { usePanelDefinitions } from "@/app/hooks/usePanelDefinitions";
+import { useArtifactGeneration } from "@/app/hooks/useArtifactGeneration";
 import { ENDPOINT_PRIORS } from "@/app/lib/llm/predict";
 import { gatherDependencyContext } from "@/app/lib/utils/leanContext";
 
@@ -43,17 +45,21 @@ export default function Home() {
     restoredDecompState, persistDecompState,
   } = useWorkspacePersistence();
 
-  // --- Causal graph state ---
+  // --- Artifact data state ---
   const [causalGraph, setCausalGraph] = useState<import("@/app/lib/types/artifacts").CausalGraphResponse["causalGraph"] | null>(null);
-  const [causalGraphLoading, setCausalGraphLoading] = useState(false);
-
-  // --- New artifact states ---
   const [statisticalModel, setStatisticalModel] = useState<import("@/app/lib/types/artifacts").StatisticalModelResponse["statisticalModel"] | null>(null);
-  const [statisticalModelLoading, setStatisticalModelLoading] = useState(false);
   const [propertyTests, setPropertyTests] = useState<import("@/app/lib/types/artifacts").PropertyTestsResponse["propertyTests"] | null>(null);
-  const [propertyTestsLoading, setPropertyTestsLoading] = useState(false);
   const [dialecticalMap, setDialecticalMap] = useState<import("@/app/lib/types/artifacts").DialecticalMapResponse["dialecticalMap"] | null>(null);
-  const [dialecticalMapLoading, setDialecticalMapLoading] = useState(false);
+
+  // --- Artifact type selection + parallel generation ---
+  const [selectedArtifactTypes, setSelectedArtifactTypes] = useState<ArtifactType[]>(["semiformal"]);
+  const { loadingState: artifactLoadingState, generateArtifacts, isAnyGenerating } = useArtifactGeneration();
+
+  // Derive per-type loading booleans from artifactLoadingState
+  const causalGraphLoading = artifactLoadingState["causal-graph"] === "generating";
+  const statisticalModelLoading = artifactLoadingState["statistical-model"] === "generating";
+  const propertyTestsLoading = artifactLoadingState["property-tests"] === "generating";
+  const dialecticalMapLoading = artifactLoadingState["dialectical-map"] === "generating";
 
   // --- Decomposition state ---
   const { state: decomp, selectedNode, extractPropositions, selectNode, updateNode, resetState: resetDecomp } = useDecomposition();
@@ -220,13 +226,65 @@ export default function Home() {
     syncToActiveSession({ leanCode: code });
   }, [isDecompMode, selectedNode, updateNode, setLeanCode, syncToActiveSession]);
 
-  /** Global: generate semiformal, create session, navigate to panel */
-  const handleGenerateSemiformal = useCallback(async () => {
-    selectNode(null);
-    createSession({ type: "global" });
-    setActivePanelId("semiformal");
-    await globalPipeline.handleGenerateSemiformal(combinedPaperText);
-  }, [combinedPaperText, selectNode, createSession, globalPipeline]);
+  /** Unified: generate all selected artifact types in parallel */
+  const handleGenerate = useCallback(async () => {
+    const text = isDecompMode && selectedNode
+      ? `${selectedNode.statement}\n\n${selectedNode.proofText}`
+      : combinedPaperText;
+    if (!text.trim()) return;
+
+    const request = {
+      sourceText: text,
+      context: contextText,
+      nodeId: selectedNode?.id,
+      nodeLabel: selectedNode?.label,
+    };
+
+    if (!isDecompMode) {
+      selectNode(null);
+      createSession({ type: "global" });
+    } else if (selectedNode) {
+      createSession({ type: "node", nodeId: selectedNode.id, nodeLabel: selectedNode.label });
+    }
+
+    // Navigate to the first selected artifact panel
+    const firstType = selectedArtifactTypes[0];
+    if (firstType === "semiformal") setActivePanelId("semiformal");
+    else if (firstType) setActivePanelId(firstType as PanelId);
+
+    // Non-semiformal types go through parallel generation
+    const nonSemiformalTypes = selectedArtifactTypes.filter((t) => t !== "semiformal");
+    const hasSemiformal = selectedArtifactTypes.includes("semiformal");
+
+    // Fire semiformal through the existing pipeline (handles session sync)
+    // and other types through parallel generation simultaneously
+    const [, artifactResults] = await Promise.all([
+      hasSemiformal
+        ? (isDecompMode ? nodePipeline : globalPipeline).handleGenerateSemiformal(text)
+        : Promise.resolve(),
+      nonSemiformalTypes.length > 0
+        ? generateArtifacts(nonSemiformalTypes, request)
+        : Promise.resolve({} as Partial<Record<ArtifactType, unknown>>),
+    ]);
+
+    // Store results in appropriate state
+    if (artifactResults?.["causal-graph"]) {
+      setCausalGraph(artifactResults["causal-graph"] as import("@/app/lib/types/artifacts").CausalGraphResponse["causalGraph"]);
+    }
+    if (artifactResults?.["statistical-model"]) {
+      setStatisticalModel(artifactResults["statistical-model"] as import("@/app/lib/types/artifacts").StatisticalModelResponse["statisticalModel"]);
+    }
+    if (artifactResults?.["property-tests"]) {
+      setPropertyTests(artifactResults["property-tests"] as import("@/app/lib/types/artifacts").PropertyTestsResponse["propertyTests"]);
+    }
+    if (artifactResults?.["dialectical-map"]) {
+      setDialecticalMap(artifactResults["dialectical-map"] as import("@/app/lib/types/artifacts").DialecticalMapResponse["dialecticalMap"]);
+    }
+  }, [
+    isDecompMode, selectedNode, combinedPaperText, contextText,
+    selectedArtifactTypes, selectNode, createSession,
+    globalPipeline, nodePipeline, generateArtifacts,
+  ]);
 
   /** Global: generate Lean from semiformal, navigate to panel */
   const handleGenerateLean = useCallback(async () => {
@@ -234,14 +292,8 @@ export default function Home() {
     await globalPipeline.handleGenerateLean();
   }, [globalPipeline]);
 
-  /** Per-node: generate semiformal, create session, navigate to panel */
-  const handleNodeGenerateSemiformal = useCallback(async () => {
-    if (!selectedNode) return;
-    createSession({ type: "node", nodeId: selectedNode.id, nodeLabel: selectedNode.label });
-    setActivePanelId("semiformal");
-    const nodeText = `${selectedNode.statement}\n\n${selectedNode.proofText}`;
-    await nodePipeline.handleGenerateSemiformal(nodeText);
-  }, [selectedNode, createSession, nodePipeline]);
+  /** Per-node: generate selected artifacts, create session, navigate to panel */
+  const handleNodeGenerate = handleGenerate;
 
   /** Per-node: generate Lean + verify, navigate to panel */
   const handleNodeGenerateLean = useCallback(async () => {
@@ -276,38 +328,6 @@ export default function Home() {
       .map((depId) => decomp.nodes.find((n) => n.id === depId))
       .filter((n): n is NonNullable<typeof n> => n != null);
   }, [selectedNode, decomp.nodes]);
-
-  // --- Causal graph generation ---
-  const handleGenerateCausalGraph = useCallback(async () => {
-    const text = isDecompMode && selectedNode
-      ? `${selectedNode.statement}\n\n${selectedNode.proofText}`
-      : combinedPaperText;
-    if (!text.trim()) return;
-    setCausalGraphLoading(true);
-    setActivePanelId("causal-graph");
-    try {
-      const response = await fetch("/api/formalization/causal-graph", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceText: text,
-          context: contextText,
-          nodeId: selectedNode?.id,
-          nodeLabel: selectedNode?.label,
-        }),
-      });
-      const data = await response.json();
-      if (response.ok && data.causalGraph) {
-        setCausalGraph(data.causalGraph);
-      } else {
-        console.error("[causal-graph]", data.error);
-      }
-    } catch (err) {
-      console.error("[causal-graph]", err);
-    } finally {
-      setCausalGraphLoading(false);
-    }
-  }, [isDecompMode, selectedNode, combinedPaperText, contextText]);
 
   // --- Panel definitions ---
   const panels = usePanelDefinitions({
@@ -357,8 +377,8 @@ export default function Home() {
         onFilesChanged={setExtractedFiles}
         contextText={contextText}
         onContextTextChange={setContextText}
-        onFormalise={handleGenerateSemiformal}
-        loading={loadingPhase !== "idle"}
+        onFormalise={handleGenerate}
+        loading={loadingPhase !== "idle" || isAnyGenerating}
       />
     ),
     semiformal: (
@@ -406,7 +426,7 @@ export default function Home() {
       <NodeDetailPanel
         node={selectedNode}
         dependencies={selectedNodeDeps}
-        onFormalise={handleNodeGenerateSemiformal}
+        onFormalise={handleNodeGenerate}
         onGenerateLean={handleNodeGenerateLean}
         loading={loadingPhase !== "idle" || queueRunning}
       />
@@ -447,9 +467,9 @@ export default function Home() {
     selectedNode, selectedNodeDeps, sourceDocuments,
     queueProgress, startQueue, pauseQueue, resumeQueue, cancelQueue,
     setSourceText, setExtractedFiles, setContextText,
-    handleGenerateSemiformal, handleGenerateLean, handleSemiformalTextChange, handleLeanCodeChange,
-    activePipeline,
-    handleSelectNode, handleDecompose, handleNodeGenerateSemiformal, handleNodeGenerateLean,
+    handleGenerate, handleGenerateLean, handleSemiformalTextChange, handleLeanCodeChange,
+    activePipeline, isAnyGenerating,
+    handleSelectNode, handleDecompose, handleNodeGenerate, handleNodeGenerateLean,
     activeSession, allSessionsSorted, selectAndRestore,
     causalGraph, causalGraphLoading,
     statisticalModel, statisticalModelLoading,
