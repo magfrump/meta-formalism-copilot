@@ -441,9 +441,9 @@ export async function extractStructuredItems(file: File): Promise<StructuredPage
 
   const buffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
-  const pages: StructuredPage[] = [];
 
-  for (let i = 1; i <= pdf.numPages; i++) {
+  const pagePromises = Array.from({ length: pdf.numPages }, async (_, idx) => {
+    const i = idx + 1;
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
 
@@ -457,7 +457,6 @@ export async function extractStructuredItems(file: File): Promise<StructuredPage
     try {
       const rawAnnotations = await page.getAnnotations();
       for (const ann of rawAnnotations) {
-        // Link annotations have subtype "Link"
         if (ann.subtype === "Link" && ann.rect) {
           annotations.push({
             dest: ann.dest ?? null,
@@ -469,15 +468,15 @@ export async function extractStructuredItems(file: File): Promise<StructuredPage
       // Some PDFs may fail annotation extraction; continue without them
     }
 
-    pages.push({
+    return {
       pageNumber: i,
       items,
       styles: content.styles as Record<string, TextStyle>,
       annotations,
-    });
-  }
+    } satisfies StructuredPage;
+  });
 
-  return pages;
+  return Promise.all(pagePromises);
 }
 
 // ── Top-level parser ───────────────────────────────────────────────────────
@@ -501,13 +500,12 @@ export async function parsePdfPropositions(
     allAnnotations.push(...page.annotations);
   }
 
-  // Check if it looks like a TeX-compiled paper
-  if (!isPdfTexCompiled(allLines)) {
+  // Identify headers — also used as the TeX-compiled detection heuristic
+  const headers = identifyPropositionHeaders(allLines);
+  const boldHeaders = headers.filter((h) => h.boldConfirmed);
+  if (boldHeaders.length < 2) {
     return null;
   }
-
-  // Identify headers and segment
-  const headers = identifyPropositionHeaders(allLines);
   const segments = segmentDocument(allLines, headers);
 
   if (segments.length === 0) return null;
