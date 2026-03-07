@@ -4,11 +4,11 @@ Tracking document for issues surfaced during user research sessions.
 
 ## High Priority (UX blockers)
 
-- [ ] **Hide semiformal and Lean tabs by default** — Users shouldn't see empty output tabs before formalization runs. *(u0 #4)*
+- [x] **Hide semiformal and Lean tabs by default** — Users shouldn't see empty output tabs before formalization runs. *(u0 #4)*
 - [ ] **Fix decompose buttons** — Buttons didn't respond during session. Needs debugging. *(u0 #7)*
 - [ ] **Clean up input tab layout** — Input section is too busy; context box text is hard to read. Needs layout/spacing work. *(u0 #3)*
 - [ ] **Remove or defer refinement chips on context box** — Chips appearing immediately after typing feels like premature output. Show them only after formalization, or move them elsewhere. *(u0 #5)*
-- [ ] **Don't auto-select "deductive (lean)" chip** — Pre-selection obscures what the user is choosing. Default to no selection or make the selection step more explicit. *(u0 #2)*
+- [x] **Don't auto-select "deductive (lean)" chip** — Pre-selection obscures what the user is choosing. Default to no selection or make the selection step more explicit. *(u0 #2)*
 
 ## Medium Priority (feature gaps)
 

@@ -96,6 +96,7 @@ export function usePanelDefinitions(opts: PanelDefsInput): PanelDef[] {
           : activeSemiformal
             ? "Proof ready"
             : "No proof yet",
+      hidden: !activeSemiformal && loadingPhase !== "semiformal",
     },
     {
       id: "lean" as PanelId,
@@ -109,6 +110,7 @@ export function usePanelDefinitions(opts: PanelDefsInput): PanelDef[] {
           : activeLeanCode
             ? "Code ready"
             : "No code yet",
+      hidden: !activeLeanCode && loadingPhase !== "lean" && loadingPhase !== "verifying" && loadingPhase !== "retrying" && loadingPhase !== "reverifying" && loadingPhase !== "iterating",
     },
     {
       id: "causal-graph" as PanelId,
