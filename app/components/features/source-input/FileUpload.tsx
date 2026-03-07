@@ -76,9 +76,6 @@ export default function FileUpload({ onFilesChanged }: FileUploadProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs text-[#6B6560]">
-        Upload papers, notes, or reference materials
-      </p>
       <input
         ref={inputRef}
         type="file"
