@@ -10,6 +10,8 @@ export type PanelId =
   | "dialectical-map"
   | "analytics";
 
+export type PanelGroup = "navigation" | "artifacts" | "meta";
+
 export type PanelDef = {
   id: PanelId;
   label: string;
@@ -17,4 +19,6 @@ export type PanelDef = {
   statusSummary: string;
   /** Hide from the rail until the panel has content */
   hidden?: boolean;
+  /** Group for visual separation in the rail */
+  group?: PanelGroup;
 };
