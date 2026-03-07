@@ -315,19 +315,45 @@ export default function Home() {
     syncToActiveSession({ leanCode: code });
   }, [isDecompMode, selectedNode, updateNode, setLeanCode, syncToActiveSession]);
 
+  /** Shared generation logic: fire semiformal + other artifacts in parallel */
+  const executeGeneration = useCallback(async (
+    text: string,
+    context: string,
+    artifactTypes: ArtifactType[],
+    pipeline: typeof globalPipeline,
+    nodeId?: string,
+    nodeLabel?: string,
+  ) => {
+    const request = { sourceText: text, context, nodeId, nodeLabel };
+
+    // Navigate to the first selected artifact panel
+    const firstType = artifactTypes[0];
+    if (firstType === "semiformal") setActivePanelId("semiformal");
+    else if (firstType) setActivePanelId(firstType as PanelId);
+
+    const nonSemiformalTypes = artifactTypes.filter((t) => t !== "semiformal");
+    const hasSemiformal = artifactTypes.includes("semiformal");
+
+    const [, artifactResults] = await Promise.all([
+      hasSemiformal
+        ? pipeline.handleGenerateSemiformal(text)
+        : Promise.resolve(),
+      nonSemiformalTypes.length > 0
+        ? generateArtifacts(nonSemiformalTypes, request)
+        : Promise.resolve({} as Partial<Record<ArtifactType, unknown>>),
+    ]);
+
+    if (artifactResults) {
+      storeArtifactResults(artifactResults, nodeId);
+    }
+  }, [generateArtifacts, storeArtifactResults]);
+
   /** Unified: generate all selected artifact types in parallel */
   const handleGenerate = useCallback(async () => {
     const text = isDecompMode && selectedNode
       ? `${selectedNode.statement}\n\n${selectedNode.proofText}`
       : combinedPaperText;
     if (!text.trim()) return;
-
-    const request = {
-      sourceText: text,
-      context: contextText,
-      nodeId: selectedNode?.id,
-      nodeLabel: selectedNode?.label,
-    };
 
     if (!isDecompMode) {
       selectNode(null);
@@ -336,35 +362,15 @@ export default function Home() {
       createSession({ type: "node", nodeId: selectedNode.id, nodeLabel: selectedNode.label });
     }
 
-    // Navigate to the first selected artifact panel
-    const firstType = selectedArtifactTypes[0];
-    if (firstType === "semiformal") setActivePanelId("semiformal");
-    else if (firstType) setActivePanelId(firstType as PanelId);
-
-    // Non-semiformal types go through parallel generation
-    const nonSemiformalTypes = selectedArtifactTypes.filter((t) => t !== "semiformal");
-    const hasSemiformal = selectedArtifactTypes.includes("semiformal");
-
-    // Fire semiformal through the existing pipeline (handles session sync)
-    // and other types through parallel generation simultaneously
-    const [, artifactResults] = await Promise.all([
-      hasSemiformal
-        ? (isDecompMode ? nodePipeline : globalPipeline).handleGenerateSemiformal(text)
-        : Promise.resolve(),
-      nonSemiformalTypes.length > 0
-        ? generateArtifacts(nonSemiformalTypes, request)
-        : Promise.resolve({} as Partial<Record<ArtifactType, unknown>>),
-    ]);
-
-    // Store results in session, node, and display state
-    // (Semiformal is stored via the pipeline's onSessionUpdate callback)
-    if (artifactResults) {
-      storeArtifactResults(artifactResults, selectedNode?.id);
-    }
+    await executeGeneration(
+      text, contextText, selectedArtifactTypes,
+      isDecompMode ? nodePipeline : globalPipeline,
+      selectedNode?.id, selectedNode?.label,
+    );
   }, [
     isDecompMode, selectedNode, combinedPaperText, contextText,
     selectedArtifactTypes, selectNode, createSession,
-    globalPipeline, nodePipeline, generateArtifacts, storeArtifactResults,
+    globalPipeline, nodePipeline, executeGeneration,
   ]);
 
   /** Global: generate Lean from semiformal, navigate to panel */
@@ -384,36 +390,13 @@ export default function Home() {
       ? selectedNode.selectedArtifactTypes
       : selectedArtifactTypes;
 
-    const request = {
-      sourceText: text,
-      context: nodeContext,
-      nodeId: selectedNode.id,
-      nodeLabel: selectedNode.label,
-    };
-
     createSession({ type: "node", nodeId: selectedNode.id, nodeLabel: selectedNode.label });
 
-    // Navigate to the first selected artifact panel
-    const firstType = nodeTypes[0];
-    if (firstType === "semiformal") setActivePanelId("semiformal");
-    else if (firstType) setActivePanelId(firstType as PanelId);
-
-    const nonSemiformalTypes = nodeTypes.filter((t) => t !== "semiformal");
-    const hasSemiformal = nodeTypes.includes("semiformal");
-
-    const [, artifactResults] = await Promise.all([
-      hasSemiformal
-        ? nodePipeline.handleGenerateSemiformal(text)
-        : Promise.resolve(),
-      nonSemiformalTypes.length > 0
-        ? generateArtifacts(nonSemiformalTypes, request)
-        : Promise.resolve({} as Partial<Record<ArtifactType, unknown>>),
-    ]);
-
-    if (artifactResults) {
-      storeArtifactResults(artifactResults, selectedNode.id);
-    }
-  }, [selectedNode, contextText, selectedArtifactTypes, createSession, nodePipeline, generateArtifacts, storeArtifactResults]);
+    await executeGeneration(
+      text, nodeContext, nodeTypes, nodePipeline,
+      selectedNode.id, selectedNode.label,
+    );
+  }, [selectedNode, contextText, selectedArtifactTypes, createSession, nodePipeline, executeGeneration]);
 
   /** Per-node: generate Lean + verify, navigate to panel */
   const handleNodeGenerateLean = useCallback(async () => {
