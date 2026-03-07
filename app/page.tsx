@@ -76,7 +76,7 @@ export default function Home() {
   }, [persistedDialecticalMap]);
 
   // --- Artifact type selection + parallel generation ---
-  const [selectedArtifactTypes, setSelectedArtifactTypes] = useState<ArtifactType[]>(["semiformal"]);
+  const [selectedArtifactTypes, setSelectedArtifactTypes] = useState<ArtifactType[]>([]);
   const { loadingState: artifactLoadingState, generateArtifacts, isAnyGenerating } = useArtifactGeneration();
 
   // Derive per-type loading booleans from artifactLoadingState
