@@ -292,8 +292,56 @@ export default function Home() {
     await globalPipeline.handleGenerateLean();
   }, [globalPipeline]);
 
-  /** Per-node: generate selected artifacts, create session, navigate to panel */
-  const handleNodeGenerate = handleGenerate;
+  /** Per-node: generate selected artifacts using node-level context + chip selection */
+  const handleNodeGenerate = useCallback(async () => {
+    if (!selectedNode) return;
+    const text = `${selectedNode.statement}\n\n${selectedNode.proofText}`;
+    if (!text.trim()) return;
+
+    const nodeContext = selectedNode.context || contextText;
+    const nodeTypes = selectedNode.selectedArtifactTypes.length > 0
+      ? selectedNode.selectedArtifactTypes
+      : selectedArtifactTypes;
+
+    const request = {
+      sourceText: text,
+      context: nodeContext,
+      nodeId: selectedNode.id,
+      nodeLabel: selectedNode.label,
+    };
+
+    createSession({ type: "node", nodeId: selectedNode.id, nodeLabel: selectedNode.label });
+
+    // Navigate to the first selected artifact panel
+    const firstType = nodeTypes[0];
+    if (firstType === "semiformal") setActivePanelId("semiformal");
+    else if (firstType) setActivePanelId(firstType as PanelId);
+
+    const nonSemiformalTypes = nodeTypes.filter((t) => t !== "semiformal");
+    const hasSemiformal = nodeTypes.includes("semiformal");
+
+    const [, artifactResults] = await Promise.all([
+      hasSemiformal
+        ? nodePipeline.handleGenerateSemiformal(text)
+        : Promise.resolve(),
+      nonSemiformalTypes.length > 0
+        ? generateArtifacts(nonSemiformalTypes, request)
+        : Promise.resolve({} as Partial<Record<ArtifactType, unknown>>),
+    ]);
+
+    if (artifactResults?.["causal-graph"]) {
+      setCausalGraph(artifactResults["causal-graph"] as import("@/app/lib/types/artifacts").CausalGraphResponse["causalGraph"]);
+    }
+    if (artifactResults?.["statistical-model"]) {
+      setStatisticalModel(artifactResults["statistical-model"] as import("@/app/lib/types/artifacts").StatisticalModelResponse["statisticalModel"]);
+    }
+    if (artifactResults?.["property-tests"]) {
+      setPropertyTests(artifactResults["property-tests"] as import("@/app/lib/types/artifacts").PropertyTestsResponse["propertyTests"]);
+    }
+    if (artifactResults?.["dialectical-map"]) {
+      setDialecticalMap(artifactResults["dialectical-map"] as import("@/app/lib/types/artifacts").DialecticalMapResponse["dialecticalMap"]);
+    }
+  }, [selectedNode, contextText, selectedArtifactTypes, createSession, nodePipeline, generateArtifacts]);
 
   /** Per-node: generate Lean + verify, navigate to panel */
   const handleNodeGenerateLean = useCallback(async () => {
@@ -434,6 +482,10 @@ export default function Home() {
         onFormalise={handleNodeGenerate}
         onGenerateLean={handleNodeGenerateLean}
         loading={loadingPhase !== "idle" || queueRunning}
+        globalContextText={contextText}
+        onNodeContextChange={(text) => updateNode(selectedNode.id, { context: text })}
+        onNodeArtifactTypesChange={(types) => updateNode(selectedNode.id, { selectedArtifactTypes: types })}
+        loadingState={artifactLoadingState}
       />
     ) : undefined,
     "causal-graph": (
@@ -474,7 +526,7 @@ export default function Home() {
     setSourceText, setExtractedFiles, setContextText,
     handleGenerate, handleGenerateLean, handleSemiformalTextChange, handleLeanCodeChange,
     activePipeline, isAnyGenerating,
-    handleSelectNode, handleDecompose, handleNodeGenerate, handleNodeGenerateLean,
+    handleSelectNode, handleDecompose, handleNodeGenerate, handleNodeGenerateLean, updateNode,
     selectedArtifactTypes, artifactLoadingState,
     activeSession, allSessionsSorted, selectAndRestore,
     causalGraph, causalGraphLoading,

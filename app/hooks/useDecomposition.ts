@@ -81,6 +81,9 @@ export function useDecomposition() {
         leanCode: "",
         verificationStatus: "unverified" as const,
         verificationErrors: "",
+        context: "",
+        selectedArtifactTypes: [],
+        artifacts: [],
       }));
 
       setState((prev) => ({ ...prev, nodes, extractionStatus: "done" }));
