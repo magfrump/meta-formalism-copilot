@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import type { LlmCallUsage } from "./callLlm";
 
@@ -24,9 +24,7 @@ function computeHash(
 }
 
 function ensureCacheDir() {
-  if (!existsSync(CACHE_DIR)) {
-    mkdirSync(CACHE_DIR, { recursive: true });
-  }
+  mkdirSync(CACHE_DIR, { recursive: true });
 }
 
 export function getCachedResult(
@@ -37,8 +35,6 @@ export function getCachedResult(
 ): CachedResultWithHash | null {
   const hash = computeHash(model, systemPrompt, userContent, maxTokens);
   const filePath = join(CACHE_DIR, `${hash}.json`);
-
-  if (!existsSync(filePath)) return null;
 
   try {
     const data = JSON.parse(readFileSync(filePath, "utf-8")) as CachedResult;
@@ -80,7 +76,9 @@ export function removeCachedResult(
 ): void {
   const hash = computeHash(model, systemPrompt, userContent, maxTokens);
   const filePath = join(CACHE_DIR, `${hash}.json`);
-  if (existsSync(filePath)) {
+  try {
     unlinkSync(filePath);
+  } catch {
+    // File doesn't exist — nothing to remove
   }
 }
