@@ -379,6 +379,11 @@ export default function Home() {
         onContextTextChange={setContextText}
         onFormalise={handleGenerate}
         loading={loadingPhase !== "idle" || isAnyGenerating}
+        onDecompose={handleDecompose}
+        decomposing={decomp.extractionStatus === "extracting"}
+        selectedArtifactTypes={selectedArtifactTypes}
+        onArtifactTypesChange={setSelectedArtifactTypes}
+        loadingState={artifactLoadingState}
       />
     ),
     semiformal: (
@@ -470,6 +475,7 @@ export default function Home() {
     handleGenerate, handleGenerateLean, handleSemiformalTextChange, handleLeanCodeChange,
     activePipeline, isAnyGenerating,
     handleSelectNode, handleDecompose, handleNodeGenerate, handleNodeGenerateLean,
+    selectedArtifactTypes, artifactLoadingState,
     activeSession, allSessionsSorted, selectAndRestore,
     causalGraph, causalGraphLoading,
     statisticalModel, statisticalModelLoading,
