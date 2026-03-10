@@ -478,6 +478,7 @@ export default function Home() {
             sourceText={sourceText}
             onSourceTextChange={setSourceText}
             onFilesChanged={setExtractedFiles}
+            existingFiles={extractedFiles}
             contextText={contextText}
             onContextTextChange={setContextText}
             onFormalise={handleGenerate}

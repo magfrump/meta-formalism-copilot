@@ -17,14 +17,34 @@ type TrackedFile = {
 
 type FileUploadProps = {
   onFilesChanged?: (files: { name: string; text: string; file?: File }[]) => void;
+  /** Previously extracted files to display on mount (e.g. restored from persistence) */
+  existingFiles?: { name: string; text: string }[];
 };
 
-export default function FileUpload({ onFilesChanged }: FileUploadProps) {
+export default function FileUpload({ onFilesChanged, existingFiles }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [trackedFiles, setTrackedFiles] = useState<TrackedFile[]>([]);
 
-  // Notify parent whenever ready files change
+  // Seed trackedFiles from existingFiles on mount. These entries lack a File object
+  // (it can't be serialized) but still show the user what was previously uploaded.
+  const [trackedFiles, setTrackedFiles] = useState<TrackedFile[]>(() =>
+    (existingFiles ?? []).map((f) => ({
+      file: new File([], f.name), // placeholder — original File can't be persisted
+      status: "ready" as const,
+      text: f.text,
+    })),
+  );
+
+  // Track whether we're still on the initial render to avoid notifying parent
+  // with the same files it already has.
+  const isInitialMount = useRef(true);
+
+  // Notify parent whenever ready files change (skip the initial mount
+  // when we're just restoring existingFiles the parent already knows about)
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     const readyFiles = trackedFiles
       .filter((f) => f.status === "ready")
       .map((f) => ({ name: f.file.name, text: f.text, file: f.file }));
