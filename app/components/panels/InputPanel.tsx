@@ -8,6 +8,7 @@ type InputPanelProps = {
   sourceText: string;
   onSourceTextChange: (value: string) => void;
   onFilesChanged: (files: { name: string; text: string }[]) => void;
+  existingFiles?: { name: string; text: string }[];
   contextText: string;
   onContextTextChange: (value: string) => void;
   onFormalise: () => void;
@@ -25,6 +26,7 @@ export default function InputPanel({
   sourceText,
   onSourceTextChange,
   onFilesChanged,
+  existingFiles,
   contextText,
   onContextTextChange,
   onFormalise,
@@ -46,7 +48,7 @@ export default function InputPanel({
         </div>
         <div className="flex min-h-0 flex-col gap-3 overflow-auto p-4">
           <TextInput value={sourceText} onChange={onSourceTextChange} />
-          <FileUpload onFilesChanged={onFilesChanged} />
+          <FileUpload onFilesChanged={onFilesChanged} existingFiles={existingFiles} />
 
           {/* Decompose action */}
           {onDecompose && (
