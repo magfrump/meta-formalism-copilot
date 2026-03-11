@@ -31,7 +31,7 @@ import { gatherDependencyContext } from "@/app/lib/utils/leanContext";
 
 export default function Home() {
   // --- Panel navigation ---
-  const [activePanelId, setActivePanelId] = useState<PanelId>("source");
+  const [activePanelId, setActivePanelIdRaw] = useState<PanelId>("source");
 
   // --- Persisted state (survives page refresh) ---
   const {
@@ -80,7 +80,12 @@ export default function Home() {
   const { loadingState: artifactLoadingState, generateArtifacts, isAnyGenerating } = useArtifactGeneration();
 
   // --- Analytics ---
-  const { entries: analyticsEntries, summary: analyticsSummary, clearAnalytics } = useAnalytics();
+  const { entries: analyticsEntries, summary: analyticsSummary, clearAnalytics, refresh: refreshAnalytics } = useAnalytics();
+
+  const setActivePanelId = useCallback((id: PanelId) => {
+    if (id === "analytics") refreshAnalytics();
+    setActivePanelIdRaw(id);
+  }, [refreshAnalytics]);
 
   // Derive per-type loading booleans from artifactLoadingState
   const causalGraphLoading = artifactLoadingState["causal-graph"] === "generating";

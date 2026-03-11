@@ -6,8 +6,7 @@ import type { AnalyticsEntry, AnalyticsSummary } from "@/app/lib/types/analytics
 export function useAnalytics() {
   const [entries, setEntries] = useState<AnalyticsEntry[]>([]);
 
-  // Hydrate from persisted analytics on mount
-  useEffect(() => {
+  const refresh = useCallback(() => {
     fetch("/api/analytics")
       .then((res) => res.json())
       .then((data) => {
@@ -19,6 +18,11 @@ export function useAnalytics() {
         // Persistence unavailable — continue with empty state
       });
   }, []);
+
+  // Hydrate from persisted analytics on mount
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const clearAnalytics = useCallback(() => {
     setEntries([]);
@@ -38,5 +42,5 @@ export function useAnalytics() {
     return { totalCalls, totalInputTokens, totalOutputTokens, totalCostUsd, averageLatencyMs };
   }, [entries]);
 
-  return { entries, summary, clearAnalytics };
+  return { entries, summary, clearAnalytics, refresh };
 }
