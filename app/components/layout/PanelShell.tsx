@@ -13,7 +13,7 @@ type PanelShellProps = {
 
 export default function PanelShell({ panels, activePanelId, onSelectPanel, renderPanel, onExportAll, exportAllDisabled }: PanelShellProps) {
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--ivory-cream)]">
+    <div className="flex min-h-0 flex-1 overflow-hidden bg-[var(--ivory-cream)]">
       <IconRail
         panels={panels}
         activePanelId={activePanelId}

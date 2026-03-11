@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import type { PersistedDecomposition } from "@/app/lib/types/persistence";
+import type { PersistedWorkspace, PersistedDecomposition } from "@/app/lib/types/persistence";
 import type { VerificationStatus } from "@/app/lib/types/session";
 import { loadWorkspace, saveWorkspace, type ArtifactPersistenceData, type SaveWorkspaceInput } from "@/app/lib/utils/workspacePersistence";
 
@@ -143,6 +143,89 @@ export function useWorkspacePersistence() {
   const setPropertyTests = useCallback((v: string | null) => setState((s) => ({ ...s, propertyTests: v })), []);
   const setDialecticalMap = useCallback((v: string | null) => setState((s) => ({ ...s, dialecticalMap: v })), []);
 
+  /** Build a PersistedWorkspace snapshot of the current state (synchronous) */
+  const getSnapshot = useCallback((): PersistedWorkspace => {
+    const s = stateRef.current;
+    const a = artifactRef.current;
+    return {
+      version: 2,
+      sourceText: s.sourceText,
+      extractedFiles: s.extractedFiles.map(({ name, text }) => ({ name, text })),
+      contextText: s.contextText,
+      semiformalText: s.semiformalText,
+      leanCode: s.leanCode,
+      semiformalDirty: s.semiformalDirty,
+      verificationStatus: s.verificationStatus === "verifying" ? "none" : s.verificationStatus,
+      verificationErrors: s.verificationErrors,
+      decomposition: { ...decompRef.current },
+      causalGraph: a.causalGraph,
+      statisticalModel: a.statisticalModel,
+      propertyTests: a.propertyTests,
+      dialecticalMap: a.dialecticalMap,
+    };
+  }, []);
+
+  /** Replace all workspace state from a snapshot (used when switching workspace sessions) */
+  const resetToSnapshot = useCallback((data: PersistedWorkspace): PersistedDecomposition => {
+    // Cancel any pending debounced save
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    setState({
+      sourceText: data.sourceText,
+      extractedFiles: data.extractedFiles,
+      contextText: data.contextText,
+      semiformalText: data.semiformalText,
+      leanCode: data.leanCode,
+      semiformalDirty: data.semiformalDirty,
+      verificationStatus: data.verificationStatus,
+      verificationErrors: data.verificationErrors,
+      causalGraph: data.causalGraph,
+      statisticalModel: data.statisticalModel,
+      propertyTests: data.propertyTests,
+      dialecticalMap: data.dialecticalMap,
+    });
+
+    decompRef.current = data.decomposition;
+
+    // Write to localStorage immediately (no debounce for session switches)
+    saveWorkspace({
+      sourceText: data.sourceText,
+      extractedFiles: data.extractedFiles,
+      contextText: data.contextText,
+      semiformalText: data.semiformalText,
+      leanCode: data.leanCode,
+      semiformalDirty: data.semiformalDirty,
+      verificationStatus: data.verificationStatus,
+      verificationErrors: data.verificationErrors,
+      decomposition: data.decomposition,
+      artifacts: {
+        causalGraph: data.causalGraph,
+        statisticalModel: data.statisticalModel,
+        propertyTests: data.propertyTests,
+        dialecticalMap: data.dialecticalMap,
+      },
+    });
+
+    return data.decomposition;
+  }, []);
+
+  /** Clear all workspace state back to defaults */
+  const clearWorkspace = useCallback((): PersistedDecomposition => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    setState(DEFAULT_STATE);
+
+    const emptyDecomp: PersistedDecomposition = { nodes: [], selectedNodeId: null, paperText: "" };
+    decompRef.current = emptyDecomp;
+
+    saveWorkspace({
+      ...DEFAULT_STATE,
+      decomposition: emptyDecomp,
+    });
+
+    return emptyDecomp;
+  }, []);
+
   // Stable return object that destructures the same as before
   return useMemo(() => ({
     sourceText: state.sourceText,
@@ -171,5 +254,8 @@ export function useWorkspacePersistence() {
     setDialecticalMap,
     restoredDecompState,
     persistDecompState,
-  }), [state, restoredDecompState, persistDecompState, setSourceText, setExtractedFiles, setContextText, setSemiformalText, setLeanCode, setSemiformalDirty, setVerificationStatus, setVerificationErrors, setCausalGraph, setStatisticalModel, setPropertyTests, setDialecticalMap]);
+    getSnapshot,
+    resetToSnapshot,
+    clearWorkspace,
+  }), [state, restoredDecompState, persistDecompState, setSourceText, setExtractedFiles, setContextText, setSemiformalText, setLeanCode, setSemiformalDirty, setVerificationStatus, setVerificationErrors, setCausalGraph, setStatisticalModel, setPropertyTests, setDialecticalMap, getSnapshot, resetToSnapshot, clearWorkspace]);
 }

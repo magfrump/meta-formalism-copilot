@@ -198,6 +198,26 @@ export function useFormalizationSessions(onRestore?: SessionRestoreHandler) {
     [state.sessions],
   );
 
+  /** Return a snapshot of the current sessions state (for workspace session saves) */
+  const getSnapshot = useCallback((): SessionsState => {
+    return { sessions: stateRef.current.sessions, activeSessionId: stateRef.current.activeSessionId };
+  }, []);
+
+  /** Replace all formalization sessions from a snapshot (used when switching workspace sessions) */
+  const resetToSnapshot = useCallback((data: SessionsState) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setState(data);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }, []);
+
+  /** Clear all formalization sessions */
+  const clearAllSessions = useCallback(() => {
+    const empty: SessionsState = { sessions: [], activeSessionId: null };
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setState(empty);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(empty));
+  }, []);
+
   return {
     sessions: state.sessions,
     allSessionsSorted,
@@ -211,5 +231,8 @@ export function useFormalizationSessions(onRestore?: SessionRestoreHandler) {
     clearActiveSession,
     sessionsForScope,
     activeSessionForScope,
+    getSnapshot,
+    resetToSnapshot,
+    clearAllSessions,
   };
 }

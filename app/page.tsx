@@ -7,6 +7,7 @@ import type { SourceDocument, NodeArtifact } from "@/app/lib/types/decomposition
 import { toNodeVerificationStatus } from "@/app/lib/types/decomposition";
 import type { FormalizationSession } from "@/app/lib/types/session";
 import PanelShell from "@/app/components/layout/PanelShell";
+import WorkspaceSessionBar from "@/app/components/features/workspace-session/WorkspaceSessionBar";
 import InputPanel from "@/app/components/panels/InputPanel";
 import SemiformalPanel from "@/app/components/panels/SemiformalPanel";
 import LeanPanel from "@/app/components/panels/LeanPanel";
@@ -27,6 +28,7 @@ import { useActiveArtifactState } from "@/app/hooks/useActiveArtifactState";
 import { usePanelDefinitions } from "@/app/hooks/usePanelDefinitions";
 import { useArtifactGeneration } from "@/app/hooks/useArtifactGeneration";
 import { useAnalytics } from "@/app/hooks/useAnalytics";
+import { useWorkspaceSessions } from "@/app/hooks/useWorkspaceSessions";
 import { gatherDependencyContext } from "@/app/lib/utils/leanContext";
 
 export default function Home() {
@@ -44,6 +46,7 @@ export default function Home() {
     verificationStatus, setVerificationStatus,
     verificationErrors, setVerificationErrors,
     restoredDecompState, persistDecompState,
+    getSnapshot: getWorkspaceSnapshot, resetToSnapshot: resetWorkspaceToSnapshot, clearWorkspace,
     causalGraph: persistedCausalGraph, setCausalGraph: setPersistedCausalGraph,
     statisticalModel: persistedStatisticalModel, setStatisticalModel: setPersistedStatisticalModel,
     propertyTests: persistedPropertyTests, setPropertyTests: setPersistedPropertyTests,
@@ -159,6 +162,9 @@ export default function Home() {
     selectSession,
     selectAndRestore,
     sessionsForScope,
+    getSnapshot: getSessionsSnapshot,
+    resetToSnapshot: resetSessionsToSnapshot,
+    clearAllSessions,
   } = useFormalizationSessions(handleRestoreSession);
 
 
@@ -207,6 +213,24 @@ export default function Home() {
       setPersistedDialecticalMap(JSON.stringify(results["dialectical-map"]));
     }
   }, [updateSessionArtifact, updateNode, decomp.nodes, setPersistedCausalGraph, setPersistedStatisticalModel, setPersistedPropertyTests, setPersistedDialecticalMap]);
+
+  // --- Workspace sessions (higher-level grouping of inputs + outputs) ---
+  const {
+    workspaceSessions,
+    activeWorkspaceSession,
+    createNewSession: createNewWorkspaceSession,
+    switchToSession: switchWorkspaceSession,
+    renameSession: renameWorkspaceSession,
+    deleteSession: deleteWorkspaceSession,
+  } = useWorkspaceSessions({
+    getWorkspaceSnapshot: getWorkspaceSnapshot,
+    getSessionsSnapshot: getSessionsSnapshot,
+    resetWorkspaceToSnapshot: resetWorkspaceToSnapshot,
+    resetSessionsToSnapshot: resetSessionsToSnapshot,
+    clearWorkspace,
+    clearAllSessions,
+    resetDecomp,
+  });
 
   // --- Combined paper text for single-proof formalization ---
   const combinedPaperText = useMemo(() => {
@@ -301,6 +325,9 @@ export default function Home() {
     globalPipeline.loadingPhase,
     nodePipeline.loadingPhase,
   );
+
+  // Determine if any RPC is in flight (for workspace session-switch guard)
+  const isAnyRpcBusy = loadingPhase !== "idle" || isAnyGenerating || queueRunning;
 
   // --- Handlers ---
 
@@ -616,7 +643,16 @@ export default function Home() {
   ]);
 
   return (
-    <main>
+    <main className="flex h-screen flex-col">
+      <WorkspaceSessionBar
+        sessions={workspaceSessions}
+        activeSession={activeWorkspaceSession}
+        onNewSession={createNewWorkspaceSession}
+        onSwitchSession={switchWorkspaceSession}
+        onRenameSession={renameWorkspaceSession}
+        onDeleteSession={deleteWorkspaceSession}
+        isBusy={isAnyRpcBusy}
+      />
       <PanelShell
         panels={panels}
         activePanelId={activePanelId}
