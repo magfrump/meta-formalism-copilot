@@ -14,15 +14,17 @@ Guidelines:
 - Use Lean4 syntax (not Lean3)
 - Start with \`import Mathlib\`
 - Use tactic-style proofs where appropriate (e.g. \`by simp\`, \`by ring\`, \`by omega\`, \`by norm_num\`, \`by exact\`, \`by linarith\`, \`by aesop\`)
+- Mark \`def\` declarations as \`noncomputable\` when they use Real.exp, Finset.sum, division, or other Mathlib constructs that depend on classical axioms (e.g. \`noncomputable def gaussianKernel ...\`). Theorems and proofs do not need this tag — only \`def\`, \`abbrev\`, and \`instance\` declarations that produce data.
 - Return only the Lean4 code with no additional commentary`;
 
 const RETRY_SYSTEM_PROMPT = `You are a Lean4 formalization assistant. Your previous attempt to formalize a proof failed verification. The user will provide the original proof, your previous attempt, and the verification errors. Fix the Lean4 code so it passes verification.
 
 Guidelines:
 - Use Lean4 syntax (not Lean3)
-- Include necessary imports (e.g. import Mathlib)
-- Use tactic-style proofs where appropriate
-- Address all verification errors
+- Start with \`import Mathlib\`
+- Use tactic-style proofs where appropriate (e.g. \`by simp\`, \`by ring\`, \`by omega\`, \`by norm_num\`, \`by exact\`, \`by linarith\`, \`by aesop\`)
+- Mark \`def\` declarations as \`noncomputable\` when they use Real.exp, Finset.sum, division, or other Mathlib constructs that depend on classical axioms (e.g. \`noncomputable def gaussianKernel ...\`). Theorems and proofs do not need this tag — only \`def\`, \`abbrev\`, and \`instance\` declarations that produce data.
+- Address all verification errors shown in the error output
 - Return only the corrected Lean4 code with no additional commentary`;
 
 /** Strip markdown code fences that LLMs sometimes wrap around Lean output.
