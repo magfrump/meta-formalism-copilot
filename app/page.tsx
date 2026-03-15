@@ -381,7 +381,7 @@ export default function Home() {
     if (artifactResults) {
       storeArtifactResults(artifactResults, nodeId);
     }
-  }, [generateArtifacts, storeArtifactResults]);
+  }, [generateArtifacts, storeArtifactResults, setActivePanelId]);
 
   /** Unified: generate all selected artifact types in parallel */
   const handleGenerate = useCallback(async () => {
@@ -412,7 +412,7 @@ export default function Home() {
   const handleGenerateLean = useCallback(async () => {
     setActivePanelId("lean");
     await globalPipeline.handleGenerateLean();
-  }, [globalPipeline]);
+  }, [globalPipeline, setActivePanelId]);
 
   /** Per-node: generate selected artifacts using node-level context + chip selection */
   const handleNodeGenerate = useCallback(async () => {
@@ -437,7 +437,7 @@ export default function Home() {
   const handleNodeGenerateLean = useCallback(async () => {
     setActivePanelId("lean");
     await nodePipeline.handleGenerateLean();
-  }, [nodePipeline]);
+  }, [nodePipeline, setActivePanelId]);
 
   // Graph panel handlers
   const handleDecompose = useCallback(() => {
@@ -457,7 +457,7 @@ export default function Home() {
         selectSession(nodeSessions[0].id);
       }
     }
-  }, [selectNode, decomp.nodes, sessionsForScope, selectSession]);
+  }, [selectNode, decomp.nodes, sessionsForScope, selectSession, setActivePanelId]);
 
   // Resolve dependencies for NodeDetailPanel
   const selectedNodeDeps = useMemo(() => {
