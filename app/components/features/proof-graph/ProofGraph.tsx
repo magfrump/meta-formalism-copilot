@@ -14,21 +14,27 @@ type ProofGraphProps = {
   selectedNodeId: string | null;
   onSelectNode: (id: string) => void;
   sourceColorMap: Record<string, string>;
+  selectionMode?: boolean;
+  formalizeSelection?: Set<string>;
+  onToggleSelection?: (nodeId: string) => void;
 };
 
-export default function ProofGraph({ propositions, selectedNodeId, onSelectNode, sourceColorMap }: ProofGraphProps) {
+export default function ProofGraph({ propositions, selectedNodeId, onSelectNode, sourceColorMap, selectionMode, formalizeSelection, onToggleSelection }: ProofGraphProps) {
   const { nodes, edges } = useGraphLayout(propositions);
 
-  // Inject sourceColor into each node's data
+  // Inject sourceColor and selection state into each node's data
   const coloredNodes = useMemo(() => {
     return nodes.map((n) => ({
       ...n,
       data: {
         ...n.data,
         sourceColor: sourceColorMap[n.data.sourceId] ?? undefined,
+        selectionMode: selectionMode ?? false,
+        selectedForFormalize: formalizeSelection?.has(n.id) ?? false,
+        onToggleSelection,
       },
     }));
-  }, [nodes, sourceColorMap]);
+  }, [nodes, sourceColorMap, selectionMode, formalizeSelection, onToggleSelection]);
 
   const handleNodeClick: NodeMouseHandler = useCallback(
     (_event, node) => {

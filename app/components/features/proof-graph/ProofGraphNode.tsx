@@ -32,19 +32,42 @@ const KIND_BADGE_COLORS: Record<string, string> = {
   conclusion: "#7C3AED",
 };
 
-// Extended data type that includes injected source color
-type ProofGraphNodeData = PropositionNode & { sourceColor?: string };
+// Extended data type that includes injected source color and selection state
+type ProofGraphNodeData = PropositionNode & {
+  sourceColor?: string;
+  selectionMode?: boolean;
+  selectedForFormalize?: boolean;
+  onToggleSelection?: (nodeId: string) => void;
+};
 
 function ProofGraphNode({ data }: NodeProps<ProofGraphNodeData>) {
   const statusColor = STATUS_COLORS[data.verificationStatus];
   const badgeColor = KIND_BADGE_COLORS[data.kind] ?? "#6B6560";
+  const isVerified = data.verificationStatus === "verified";
 
   return (
     <div
-      className="flex flex-col items-center justify-center rounded-lg border bg-white px-3 py-2 shadow-sm transition-shadow hover:shadow-md"
-      style={{ borderColor: statusColor, borderWidth: 2, minWidth: 160 }}
+      className="relative flex flex-col items-center justify-center rounded-lg border bg-white px-3 py-2 shadow-sm transition-shadow hover:shadow-md"
+      style={{
+        borderColor: statusColor,
+        borderWidth: 2,
+        minWidth: 160,
+        opacity: data.selectionMode && (isVerified || !data.selectedForFormalize) ? 0.5 : 1,
+      }}
     >
       <Handle type="target" position={Position.Top} className="!bg-[#9A9590]" />
+
+      {data.selectionMode && !isVerified && (
+        <input
+          type="checkbox"
+          checked={data.selectedForFormalize ?? false}
+          onChange={(e) => {
+            e.stopPropagation();
+            data.onToggleSelection?.(data.id);
+          }}
+          className="absolute -right-1 -top-1 h-4 w-4 cursor-pointer accent-emerald-700"
+        />
+      )}
 
       <div className="flex items-center gap-1.5">
         <span

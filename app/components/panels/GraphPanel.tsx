@@ -30,7 +30,7 @@ type GraphPanelProps = {
   extractionStatus: "idle" | "extracting" | "done" | "error";
   onDecompose: () => void;
   queueProgress: QueueProgress;
-  onFormalizeAll: () => void;
+  onFormalizeAll: (selectedNodeIds?: Set<string>) => void;
   onPauseQueue: () => void;
   onResumeQueue: () => void;
   onCancelQueue: () => void;
@@ -52,7 +52,38 @@ export default function GraphPanel({
 }: GraphPanelProps) {
   const hasNodes = propositions.length > 0;
   const [exporting, setExporting] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
   const sourceCount = sourceDocuments.length;
+
+  // Selection state: node IDs checked for formalization
+  const unverifiedIds = useMemo(
+    () => new Set(propositions.filter((n) => n.verificationStatus !== "verified").map((n) => n.id)),
+    [propositions],
+  );
+  const [formalizeSelection, setFormalizeSelection] = useState<Set<string>>(new Set());
+
+  // When entering selection mode, default to all unverified nodes
+  const enterSelectionMode = useCallback(() => {
+    setFormalizeSelection(new Set(unverifiedIds));
+    setSelectionMode(true);
+  }, [unverifiedIds]);
+
+  const toggleNodeSelection = useCallback((nodeId: string) => {
+    setFormalizeSelection((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => setFormalizeSelection(new Set(unverifiedIds)), [unverifiedIds]);
+  const deselectAll = useCallback(() => setFormalizeSelection(new Set()), []);
+
+  const handleConfirmFormalizeAll = useCallback(() => {
+    setSelectionMode(false);
+    onFormalizeAll(formalizeSelection);
+  }, [onFormalizeAll, formalizeSelection]);
 
   const queueActive = queueProgress.status === "running" || queueProgress.status === "paused";
   const processed = queueProgress.completed + queueProgress.failed + queueProgress.skipped;
@@ -99,14 +130,43 @@ export default function GraphPanel({
             />
           )}
           {/* Formalize All / queue controls */}
-          {hasNodes && !queueActive && queueProgress.status !== "done" && (
+          {hasNodes && !queueActive && queueProgress.status !== "done" && !selectionMode && (
             <button
-              onClick={onFormalizeAll}
-              disabled={extractionStatus === "extracting"}
+              onClick={enterSelectionMode}
+              disabled={extractionStatus === "extracting" || unverifiedIds.size === 0}
               className="rounded-full bg-emerald-700 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-shadow hover:shadow-md disabled:opacity-50"
             >
               Formalize All
             </button>
+          )}
+          {selectionMode && (
+            <>
+              <button
+                onClick={selectAll}
+                className="rounded-full border border-[#DDD9D5] bg-white px-3 py-1.5 text-xs font-medium text-[var(--ink-black)] shadow-sm hover:bg-[#F5F1ED]"
+              >
+                All
+              </button>
+              <button
+                onClick={deselectAll}
+                className="rounded-full border border-[#DDD9D5] bg-white px-3 py-1.5 text-xs font-medium text-[var(--ink-black)] shadow-sm hover:bg-[#F5F1ED]"
+              >
+                None
+              </button>
+              <button
+                onClick={() => setSelectionMode(false)}
+                className="rounded-full border border-[#DDD9D5] bg-white px-3 py-1.5 text-xs font-medium text-[var(--ink-black)] shadow-sm hover:bg-[#F5F1ED]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmFormalizeAll}
+                disabled={formalizeSelection.size === 0}
+                className="rounded-full bg-emerald-700 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-shadow hover:shadow-md disabled:opacity-50"
+              >
+                Formalize {formalizeSelection.size} Node{formalizeSelection.size !== 1 ? "s" : ""}
+              </button>
+            </>
           )}
           {queueActive && (
             <>
@@ -217,6 +277,9 @@ export default function GraphPanel({
             selectedNodeId={selectedNodeId}
             onSelectNode={onSelectNode}
             sourceColorMap={sourceColorMap}
+            selectionMode={selectionMode}
+            formalizeSelection={formalizeSelection}
+            onToggleSelection={toggleNodeSelection}
           />
         )}
       </div>

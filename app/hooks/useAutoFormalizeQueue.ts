@@ -36,7 +36,7 @@ export function useAutoFormalizeQueue(
   const cancelSignalRef = useRef<CancelSignal>({ cancelled: false });
   const runningRef = useRef(false);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (selectedNodeIds?: Set<string>) => {
     if (runningRef.current) return;
     runningRef.current = true;
     pauseRef.current = false;
@@ -44,11 +44,13 @@ export function useAutoFormalizeQueue(
 
     const sorted = topologicalSort(nodes);
 
-    // Filter to only unverified nodes
+    // Filter to only unverified nodes, optionally restricted to a selection
     const nodeMap = new Map(nodes.map((n) => [n.id, n]));
     const toProcess = sorted.filter((id) => {
       const n = nodeMap.get(id);
-      return n && n.verificationStatus !== "verified";
+      if (!n || n.verificationStatus === "verified") return false;
+      if (selectedNodeIds && !selectedNodeIds.has(id)) return false;
+      return true;
     });
 
     setProgress({
