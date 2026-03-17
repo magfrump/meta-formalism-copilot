@@ -92,7 +92,7 @@ export async function formalizeNode(
     const finalStatus = hasSemiformal ? deductiveResult : "verified";
     updateNode(node.id, {
       verificationStatus: finalStatus === "verified" ? "verified" : "failed",
-      verificationErrors: finalStatus === "failed" ? (hasSemiformal ? "" : "") : "",
+      verificationErrors: "",
     });
     return finalStatus;
   } catch (err) {
