@@ -3,6 +3,7 @@
 import type { CounterexamplesResponse } from "@/app/lib/types/artifacts";
 import ArtifactPanelShell, { type ArtifactEditingProps } from "./ArtifactPanelShell";
 import EditableSection from "@/app/components/features/output-editing/EditableSection";
+import { useFieldUpdaters } from "@/app/hooks/useFieldUpdaters";
 
 const PLAUSIBILITY_STYLES: Record<string, string> = {
   high: "bg-red-100 text-red-700",
@@ -13,23 +14,14 @@ const PLAUSIBILITY_STYLES: Record<string, string> = {
 type CounterexamplesPanelProps = {
   counterexamples: CounterexamplesResponse["counterexamples"] | null;
   loading?: boolean;
+  onContentChange?: (json: string) => void;
 } & ArtifactEditingProps;
 
 export default function CounterexamplesPanel({
   counterexamples, loading,
   onContentChange, onAiEdit, editing, editWaitEstimate,
 }: CounterexamplesPanelProps) {
-  const updateField = (key: string, value: unknown) => {
-    if (!counterexamples || !onContentChange) return;
-    onContentChange(JSON.stringify({ ...counterexamples, [key]: value }));
-  };
-
-  const updateArrayItem = (key: string, index: number, value: unknown) => {
-    if (!counterexamples || !onContentChange) return;
-    const arr = [...((counterexamples as unknown as Record<string, unknown[]>)[key])];
-    arr[index] = value;
-    onContentChange(JSON.stringify({ ...counterexamples, [key]: arr }));
-  };
+  const { updateField, updateArrayItem } = useFieldUpdaters(counterexamples, onContentChange);
 
   return (
     <ArtifactPanelShell

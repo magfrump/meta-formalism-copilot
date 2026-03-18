@@ -29,16 +29,17 @@ export default function EditableSection({ value, onChange, children }: EditableS
 
   const isString = typeof value === "string";
 
-  // Close editor if value changes externally (e.g. whole-document AI rewrite)
+  // Close editor if value changes externally (e.g. whole-document AI rewrite).
+  // Uses a ref to track the previous serialized value so we only close on
+  // genuine external changes, not after the user's own save.
+  const prevSerializedRef = useRef<string | null>(null);
   const serialized = JSON.stringify(value);
   useEffect(() => {
-    if (editing) setEditing(false);
-  }, [serialized]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Focus textarea when entering edit mode
-  useEffect(() => {
-    if (editing) textareaRef.current?.focus();
-  }, [editing]);
+    if (prevSerializedRef.current !== null && prevSerializedRef.current !== serialized && editing) {
+      setEditing(false);
+    }
+    prevSerializedRef.current = serialized;
+  }, [serialized, editing]);
 
   const startEditing = useCallback(() => {
     const text = isString ? (value as string) : JSON.stringify(value, null, 2);
@@ -113,11 +114,6 @@ export default function EditableSection({ value, onChange, children }: EditableS
     }
   }, [handleAiEdit, handleCancel]);
 
-  // Calculate textarea rows from content
-  const rows = isString
-    ? Math.max(2, Math.min(editText.split("\n").length + 1, 8))
-    : Math.max(4, Math.min(editText.split("\n").length + 1, 20));
-
   if (!editing) {
     return (
       <div className="group relative">
@@ -132,6 +128,10 @@ export default function EditableSection({ value, onChange, children }: EditableS
       </div>
     );
   }
+
+  const rows = isString
+    ? Math.max(2, Math.min(editText.split("\n").length + 1, 8))
+    : Math.max(4, Math.min(editText.split("\n").length + 1, 20));
 
   return (
     <div className="rounded border border-blue-300 bg-blue-50/30 px-3 py-2 space-y-2" onKeyDown={handleKeyDown}>

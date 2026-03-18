@@ -3,27 +3,19 @@
 import type { DialecticalMapResponse } from "@/app/lib/types/artifacts";
 import ArtifactPanelShell, { type ArtifactEditingProps } from "./ArtifactPanelShell";
 import EditableSection from "@/app/components/features/output-editing/EditableSection";
+import { useFieldUpdaters } from "@/app/hooks/useFieldUpdaters";
 
 type DialecticalMapPanelProps = {
   dialecticalMap: DialecticalMapResponse["dialecticalMap"] | null;
   loading?: boolean;
+  onContentChange?: (json: string) => void;
 } & ArtifactEditingProps;
 
 export default function DialecticalMapPanel({
   dialecticalMap, loading,
   onContentChange, onAiEdit, editing, editWaitEstimate,
 }: DialecticalMapPanelProps) {
-  const updateField = (key: string, value: unknown) => {
-    if (!dialecticalMap || !onContentChange) return;
-    onContentChange(JSON.stringify({ ...dialecticalMap, [key]: value }));
-  };
-
-  const updateArrayItem = (key: string, index: number, value: unknown) => {
-    if (!dialecticalMap || !onContentChange) return;
-    const arr = [...((dialecticalMap as unknown as Record<string, unknown[]>)[key])];
-    arr[index] = value;
-    onContentChange(JSON.stringify({ ...dialecticalMap, [key]: arr }));
-  };
+  const { updateField, updateArrayItem } = useFieldUpdaters(dialecticalMap, onContentChange);
 
   return (
     <ArtifactPanelShell

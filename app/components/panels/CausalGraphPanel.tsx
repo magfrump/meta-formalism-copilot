@@ -6,11 +6,13 @@ import type { WaitTimeEstimate } from "@/app/hooks/useWaitTimeEstimate";
 import ArtifactPanelShell, { type ArtifactEditingProps } from "./ArtifactPanelShell";
 import CausalGraphView from "@/app/components/features/causal-graph/CausalGraphView";
 import EditableSection from "@/app/components/features/output-editing/EditableSection";
+import { useFieldUpdaters } from "@/app/hooks/useFieldUpdaters";
 
 type CausalGraphPanelProps = {
   causalGraph: CausalGraphResponse["causalGraph"] | null;
   loading?: boolean;
   waitEstimate?: WaitTimeEstimate | null;
+  onContentChange?: (json: string) => void;
 } & ArtifactEditingProps;
 
 type ViewMode = "graph" | "details";
@@ -33,17 +35,7 @@ function DetailsView({
   causalGraph: CausalGraphResponse["causalGraph"];
   onContentChange?: (json: string) => void;
 }) {
-  const updateField = (key: string, value: unknown) => {
-    if (!onContentChange) return;
-    onContentChange(JSON.stringify({ ...causalGraph, [key]: value }));
-  };
-
-  const updateArrayItem = (key: string, index: number, value: unknown) => {
-    if (!onContentChange) return;
-    const arr = [...((causalGraph as unknown as Record<string, unknown[]>)[key])];
-    arr[index] = value;
-    onContentChange(JSON.stringify({ ...causalGraph, [key]: arr }));
-  };
+  const { updateField, updateArrayItem } = useFieldUpdaters(causalGraph, onContentChange);
 
   return (
     <>

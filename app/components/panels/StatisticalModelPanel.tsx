@@ -3,10 +3,12 @@
 import type { StatisticalModelResponse } from "@/app/lib/types/artifacts";
 import ArtifactPanelShell, { type ArtifactEditingProps } from "./ArtifactPanelShell";
 import EditableSection from "@/app/components/features/output-editing/EditableSection";
+import { useFieldUpdaters } from "@/app/hooks/useFieldUpdaters";
 
 type StatisticalModelPanelProps = {
   statisticalModel: StatisticalModelResponse["statisticalModel"] | null;
   loading?: boolean;
+  onContentChange?: (json: string) => void;
 } & ArtifactEditingProps;
 
 const ROLE_COLORS: Record<string, string> = {
@@ -29,18 +31,7 @@ export default function StatisticalModelPanel({
   statisticalModel, loading,
   onContentChange, onAiEdit, editing, editWaitEstimate,
 }: StatisticalModelPanelProps) {
-  // Helper to update a field and persist
-  const updateField = (key: string, value: unknown) => {
-    if (!statisticalModel || !onContentChange) return;
-    onContentChange(JSON.stringify({ ...statisticalModel, [key]: value }));
-  };
-
-  const updateArrayItem = (key: string, index: number, value: unknown) => {
-    if (!statisticalModel || !onContentChange) return;
-    const arr = [...((statisticalModel as unknown as Record<string, unknown[]>)[key])];
-    arr[index] = value;
-    onContentChange(JSON.stringify({ ...statisticalModel, [key]: arr }));
-  };
+  const { updateField, updateArrayItem } = useFieldUpdaters(statisticalModel, onContentChange);
 
   return (
     <ArtifactPanelShell
@@ -114,13 +105,13 @@ export default function StatisticalModelPanel({
               <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B6560] mb-2">
                 Assumptions ({statisticalModel.assumptions.length})
               </h3>
-              <ul className="list-disc pl-5 space-y-1">
+              <div className="space-y-1 pl-5">
                 {statisticalModel.assumptions.map((a, i) => (
                   <EditableSection key={i} value={a} onChange={(newA) => updateArrayItem("assumptions", i, newA)}>
-                    <li className="text-sm text-[var(--ink-black)]">{a}</li>
+                    <p className="text-sm text-[var(--ink-black)] before:content-['•'] before:mr-2 before:text-[#9A9590]">{a}</p>
                   </EditableSection>
                 ))}
-              </ul>
+              </div>
             </section>
           )}
 

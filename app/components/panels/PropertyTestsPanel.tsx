@@ -3,27 +3,19 @@
 import type { PropertyTestsResponse } from "@/app/lib/types/artifacts";
 import ArtifactPanelShell, { type ArtifactEditingProps } from "./ArtifactPanelShell";
 import EditableSection from "@/app/components/features/output-editing/EditableSection";
+import { useFieldUpdaters } from "@/app/hooks/useFieldUpdaters";
 
 type PropertyTestsPanelProps = {
   propertyTests: PropertyTestsResponse["propertyTests"] | null;
   loading?: boolean;
+  onContentChange?: (json: string) => void;
 } & ArtifactEditingProps;
 
 export default function PropertyTestsPanel({
   propertyTests, loading,
   onContentChange, onAiEdit, editing, editWaitEstimate,
 }: PropertyTestsPanelProps) {
-  const updateField = (key: string, value: unknown) => {
-    if (!propertyTests || !onContentChange) return;
-    onContentChange(JSON.stringify({ ...propertyTests, [key]: value }));
-  };
-
-  const updateArrayItem = (key: string, index: number, value: unknown) => {
-    if (!propertyTests || !onContentChange) return;
-    const arr = [...((propertyTests as unknown as Record<string, unknown[]>)[key])];
-    arr[index] = value;
-    onContentChange(JSON.stringify({ ...propertyTests, [key]: arr }));
-  };
+  const { updateField, updateArrayItem } = useFieldUpdaters(propertyTests, onContentChange);
 
   return (
     <ArtifactPanelShell
