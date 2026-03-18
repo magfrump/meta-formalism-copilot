@@ -19,7 +19,7 @@ type CounterexamplesPanelProps = {
 
 export default function CounterexamplesPanel({
   counterexamples, loading,
-  editableContent, onContentChange, onAiEdit, editing, editWaitEstimate,
+  onContentChange, onAiEdit, editing, editWaitEstimate,
 }: CounterexamplesPanelProps) {
   const { updateField, updateArrayItem } = useFieldUpdaters(counterexamples, onContentChange);
 
@@ -30,8 +30,6 @@ export default function CounterexamplesPanel({
       hasData={counterexamples !== null}
       emptyMessage="No counterexamples yet. Generate them from the source panel or node detail."
       loadingMessage="Generating counterexamples..."
-      editableContent={editableContent}
-      onContentChange={onContentChange}
       onAiEdit={onAiEdit}
       editing={editing}
       editWaitEstimate={editWaitEstimate}

@@ -16,7 +16,7 @@ type DialecticalMapPanelProps = {
 
 export default function DialecticalMapPanel({
   dialecticalMap, streamingPreview, loading,
-  editableContent, onContentChange, onAiEdit, editing, editWaitEstimate,
+  onContentChange, onAiEdit, editing, editWaitEstimate,
 }: DialecticalMapPanelProps) {
   const { updateField, updateArrayItem } = useFieldUpdaters(dialecticalMap, onContentChange);
 
@@ -32,8 +32,6 @@ export default function DialecticalMapPanel({
       hasData={hasDisplayData}
       emptyMessage="No dialectical map yet. Generate one from the source panel or node detail."
       loadingMessage="Generating dialectical map..."
-      editableContent={editableContent}
-      onContentChange={onContentChange}
       onAiEdit={onAiEdit}
       editing={editing}
       editWaitEstimate={editWaitEstimate}

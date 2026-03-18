@@ -41,6 +41,11 @@ export default function EditableSection({ value, onChange, children }: EditableS
     prevSerializedRef.current = serialized;
   }, [serialized, editing]);
 
+  // Focus textarea when entering edit mode
+  useEffect(() => {
+    if (editing) textareaRef.current?.focus();
+  }, [editing]);
+
   const startEditing = useCallback(() => {
     const text = isString ? (value as string) : JSON.stringify(value, null, 2);
     setEditText(text);

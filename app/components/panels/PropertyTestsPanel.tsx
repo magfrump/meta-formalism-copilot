@@ -16,7 +16,7 @@ type PropertyTestsPanelProps = {
 
 export default function PropertyTestsPanel({
   propertyTests, streamingPreview, loading,
-  editableContent, onContentChange, onAiEdit, editing, editWaitEstimate,
+  onContentChange, onAiEdit, editing, editWaitEstimate,
 }: PropertyTestsPanelProps) {
   const { updateField, updateArrayItem } = useFieldUpdaters(propertyTests, onContentChange);
 
@@ -32,8 +32,6 @@ export default function PropertyTestsPanel({
       hasData={hasDisplayData}
       emptyMessage="No property tests yet. Generate them from the source panel or node detail."
       loadingMessage="Generating property tests..."
-      editableContent={editableContent}
-      onContentChange={onContentChange}
       onAiEdit={onAiEdit}
       editing={editing}
       editWaitEstimate={editWaitEstimate}

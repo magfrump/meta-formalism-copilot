@@ -679,7 +679,7 @@ export default function Home() {
             streamingPreview={streamingJsonPreview["causal-graph"] as CausalGraphResponse["causalGraph"] | undefined}
             loading={causalGraphLoading}
             waitEstimate={causalGraphWaitEstimate}
-            editableContent={persistedCausalGraph}
+
             onContentChange={setPersistedCausalGraph}
             onAiEdit={artifactEditing.causalGraph.handleAiEdit}
             editing={artifactEditing.causalGraph.editing}
@@ -692,7 +692,7 @@ export default function Home() {
             statisticalModel={statisticalModel}
             streamingPreview={streamingJsonPreview["statistical-model"] as StatisticalModelResponse["statisticalModel"] | undefined}
             loading={statisticalModelLoading}
-            editableContent={persistedStatisticalModel}
+
             onContentChange={setPersistedStatisticalModel}
             onAiEdit={artifactEditing.statisticalModel.handleAiEdit}
             editing={artifactEditing.statisticalModel.editing}
@@ -705,7 +705,7 @@ export default function Home() {
             propertyTests={propertyTests}
             streamingPreview={streamingJsonPreview["property-tests"] as PropertyTestsResponse["propertyTests"] | undefined}
             loading={propertyTestsLoading}
-            editableContent={persistedPropertyTests}
+
             onContentChange={setPersistedPropertyTests}
             onAiEdit={artifactEditing.propertyTests.handleAiEdit}
             editing={artifactEditing.propertyTests.editing}
@@ -718,7 +718,7 @@ export default function Home() {
             dialecticalMap={dialecticalMap}
             streamingPreview={streamingJsonPreview["dialectical-map"] as DialecticalMapResponse["dialecticalMap"] | undefined}
             loading={dialecticalMapLoading}
-            editableContent={persistedDialecticalMap}
+
             onContentChange={setPersistedDialecticalMap}
             onAiEdit={artifactEditing.dialecticalMap.handleAiEdit}
             editing={artifactEditing.dialecticalMap.editing}
@@ -730,7 +730,7 @@ export default function Home() {
           <CounterexamplesPanel
             counterexamples={counterexamples}
             loading={counterexamplesLoading}
-            editableContent={persistedCounterexamples}
+
             onContentChange={setPersistedCounterexamples}
             onAiEdit={artifactEditing.counterexamples.handleAiEdit}
             editing={artifactEditing.counterexamples.editing}
@@ -755,15 +755,15 @@ export default function Home() {
     selectedArtifactTypes, artifactLoadingState,
     activeSession, allSessionsSorted, selectAndRestore,
     causalGraph, causalGraphLoading, causalGraphWaitEstimate, streamingJsonPreview,
-    persistedCausalGraph, setPersistedCausalGraph,
+    setPersistedCausalGraph,
     statisticalModel, statisticalModelLoading,
-    persistedStatisticalModel, setPersistedStatisticalModel,
+    setPersistedStatisticalModel,
     propertyTests, propertyTestsLoading,
-    persistedPropertyTests, setPersistedPropertyTests,
+    setPersistedPropertyTests,
     dialecticalMap, dialecticalMapLoading,
-    persistedDialecticalMap, setPersistedDialecticalMap,
+    setPersistedDialecticalMap,
     counterexamples, counterexamplesLoading,
-    persistedCounterexamples, setPersistedCounterexamples,
+    setPersistedCounterexamples,
     artifactEditing,
     analyticsEntries, analyticsSummary, clearAnalytics,
     waitEstimate,
