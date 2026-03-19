@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { PanelId } from "@/app/lib/types/panels";
 import type { ArtifactType } from "@/app/lib/types/session";
 import type { SourceDocument, NodeArtifact } from "@/app/lib/types/decomposition";
+import type { CausalGraphResponse, StatisticalModelResponse, PropertyTestsResponse, DialecticalMapResponse } from "@/app/lib/types/artifacts";
 import { toNodeVerificationStatus } from "@/app/lib/types/decomposition";
 import type { FormalizationSession } from "@/app/lib/types/session";
 import PanelShell from "@/app/components/layout/PanelShell";
@@ -81,11 +82,19 @@ export default function Home() {
     counterexamples: persistedCounterexamples, setCounterexamples: setPersistedCounterexamples,
   } = useWorkspacePersistence();
 
+  // Shared map: artifact type → persisted-state setter (used by restore, store, and clear)
+  const artifactSetters = useMemo(() => ({
+    "causal-graph": setPersistedCausalGraph,
+    "statistical-model": setPersistedStatisticalModel,
+    "property-tests": setPersistedPropertyTests,
+    "dialectical-map": setPersistedDialecticalMap,
+  } as const satisfies Partial<Record<ArtifactType, (v: string) => void>>), [setPersistedCausalGraph, setPersistedStatisticalModel, setPersistedPropertyTests, setPersistedDialecticalMap]);
+
   // --- Artifact data (persisted as JSON strings, parsed for display) ---
-  const causalGraph = useMemo(() => parseJson<import("@/app/lib/types/artifacts").CausalGraphResponse["causalGraph"]>(persistedCausalGraph), [persistedCausalGraph]);
-  const statisticalModel = useMemo(() => parseJson<import("@/app/lib/types/artifacts").StatisticalModelResponse["statisticalModel"]>(persistedStatisticalModel), [persistedStatisticalModel]);
-  const propertyTests = useMemo(() => parseJson<import("@/app/lib/types/artifacts").PropertyTestsResponse["propertyTests"]>(persistedPropertyTests), [persistedPropertyTests]);
-  const dialecticalMap = useMemo(() => parseJson<import("@/app/lib/types/artifacts").DialecticalMapResponse["dialecticalMap"]>(persistedDialecticalMap), [persistedDialecticalMap]);
+  const causalGraph = useMemo(() => parseJson<CausalGraphResponse["causalGraph"]>(persistedCausalGraph), [persistedCausalGraph]);
+  const statisticalModel = useMemo(() => parseJson<StatisticalModelResponse["statisticalModel"]>(persistedStatisticalModel), [persistedStatisticalModel]);
+  const propertyTests = useMemo(() => parseJson<PropertyTestsResponse["propertyTests"]>(persistedPropertyTests), [persistedPropertyTests]);
+  const dialecticalMap = useMemo(() => parseJson<DialecticalMapResponse["dialecticalMap"]>(persistedDialecticalMap), [persistedDialecticalMap]);
   const counterexamples = useMemo(() => parseJson<import("@/app/lib/types/artifacts").CounterexamplesResponse["counterexamples"]>(persistedCounterexamples), [persistedCounterexamples]);
 
   // --- Artifact editing ---
@@ -104,7 +113,7 @@ export default function Home() {
 
   // --- Artifact type selection + parallel generation ---
   const [selectedArtifactTypes, setSelectedArtifactTypes] = useState<ArtifactType[]>([]);
-  const { loadingState: artifactLoadingState, generateArtifacts, isAnyGenerating } = useArtifactGeneration();
+  const { loadingState: artifactLoadingState, streamingJsonPreview, generateArtifacts, isAnyGenerating } = useArtifactGeneration();
 
   // --- Analytics ---
   const { entries: analyticsEntries, summary: analyticsSummary, clearAnalytics, refresh: refreshAnalytics } = useAnalytics();
@@ -412,6 +421,13 @@ export default function Home() {
   ) => {
     const request = { sourceText: text, context, nodeId, nodeLabel };
 
+    // Clear persisted data for types being regenerated so streaming previews
+    // are visible via useStreamingMerge (which prefers finalData over preview)
+    for (const type of artifactTypes) {
+      const setter = artifactSetters[type as keyof typeof artifactSetters];
+      if (setter) setter("");
+    }
+
     // Navigate to the first selected artifact panel
     const firstType = artifactTypes[0];
     if (firstType === "semiformal") setActivePanelId("semiformal");
@@ -432,7 +448,7 @@ export default function Home() {
     if (artifactResults) {
       storeArtifactResults(artifactResults, nodeId);
     }
-  }, [generateArtifacts, storeArtifactResults, setActivePanelId]);
+  }, [generateArtifacts, storeArtifactResults, setActivePanelId, artifactSetters]);
 
   /** Unified: generate all selected artifact types in parallel */
   const handleGenerate = useCallback(async () => {
@@ -656,6 +672,7 @@ export default function Home() {
         return (
           <CausalGraphPanel
             causalGraph={causalGraph}
+            streamingPreview={streamingJsonPreview["causal-graph"] as CausalGraphResponse["causalGraph"] | undefined}
             loading={causalGraphLoading}
             waitEstimate={causalGraphWaitEstimate}
 
@@ -669,6 +686,7 @@ export default function Home() {
         return (
           <StatisticalModelPanel
             statisticalModel={statisticalModel}
+            streamingPreview={streamingJsonPreview["statistical-model"] as StatisticalModelResponse["statisticalModel"] | undefined}
             loading={statisticalModelLoading}
 
             onContentChange={setPersistedStatisticalModel}
@@ -681,6 +699,7 @@ export default function Home() {
         return (
           <PropertyTestsPanel
             propertyTests={propertyTests}
+            streamingPreview={streamingJsonPreview["property-tests"] as PropertyTestsResponse["propertyTests"] | undefined}
             loading={propertyTestsLoading}
 
             onContentChange={setPersistedPropertyTests}
@@ -693,6 +712,7 @@ export default function Home() {
         return (
           <DialecticalMapPanel
             dialecticalMap={dialecticalMap}
+            streamingPreview={streamingJsonPreview["dialectical-map"] as DialecticalMapResponse["dialecticalMap"] | undefined}
             loading={dialecticalMapLoading}
 
             onContentChange={setPersistedDialecticalMap}
@@ -730,7 +750,7 @@ export default function Home() {
     handleSelectNode, handleDecompose, handleNodeGenerate, handleNodeGenerateLean, updateNode,
     selectedArtifactTypes, artifactLoadingState,
     activeSession, allSessionsSorted, selectAndRestore,
-    causalGraph, causalGraphLoading, causalGraphWaitEstimate,
+    causalGraph, causalGraphLoading, causalGraphWaitEstimate, streamingJsonPreview,
     setPersistedCausalGraph,
     statisticalModel, statisticalModelLoading,
     setPersistedStatisticalModel,
