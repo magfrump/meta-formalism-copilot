@@ -88,7 +88,8 @@ export default function Home() {
     "statistical-model": setPersistedStatisticalModel,
     "property-tests": setPersistedPropertyTests,
     "dialectical-map": setPersistedDialecticalMap,
-  } as const satisfies Partial<Record<ArtifactType, (v: string) => void>>), [setPersistedCausalGraph, setPersistedStatisticalModel, setPersistedPropertyTests, setPersistedDialecticalMap]);
+    counterexamples: setPersistedCounterexamples,
+  } as const satisfies Partial<Record<ArtifactType, (v: string) => void>>), [setPersistedCausalGraph, setPersistedStatisticalModel, setPersistedPropertyTests, setPersistedDialecticalMap, setPersistedCounterexamples]);
 
   // --- Artifact data (persisted as JSON strings, parsed for display) ---
   const causalGraph = useMemo(() => parseJson<import("@/app/lib/types/artifacts").CausalGraphResponse["causalGraph"]>(persistedCausalGraph), [persistedCausalGraph]);
@@ -178,17 +179,10 @@ export default function Home() {
     }
 
     // Restore artifact data from session's artifacts[]
-    const restoreSetters: Partial<Record<ArtifactType, (v: string | null) => void>> = {
-      "causal-graph": setPersistedCausalGraph,
-      "statistical-model": setPersistedStatisticalModel,
-      "property-tests": setPersistedPropertyTests,
-      "dialectical-map": setPersistedDialecticalMap,
-      counterexamples: setPersistedCounterexamples,
-    };
     for (const artifact of session.artifacts) {
-      restoreSetters[artifact.type]?.(artifact.content);
+      artifactSetters[artifact.type as keyof typeof artifactSetters]?.(artifact.content);
     }
-  }, [selectNode, updateNode, setSemiformalText, setLeanCode, setVerificationStatus, setVerificationErrors, setSemiformalDirty, setPersistedCausalGraph, setPersistedStatisticalModel, setPersistedPropertyTests, setPersistedDialecticalMap, setPersistedCounterexamples]);
+  }, [selectNode, updateNode, setSemiformalText, setLeanCode, setVerificationStatus, setVerificationErrors, setSemiformalDirty, artifactSetters]);
 
   const {
     activeSession,
@@ -237,20 +231,13 @@ export default function Home() {
     }
 
     // Also update persisted display state (JSON strings)
-    const persistSetters: Partial<Record<ArtifactType, (v: string | null) => void>> = {
-      "causal-graph": setPersistedCausalGraph,
-      "statistical-model": setPersistedStatisticalModel,
-      "property-tests": setPersistedPropertyTests,
-      "dialectical-map": setPersistedDialecticalMap,
-      counterexamples: setPersistedCounterexamples,
-    };
     for (const [type, value] of Object.entries(results)) {
-      const setter = persistSetters[type as ArtifactType];
+      const setter = artifactSetters[type as keyof typeof artifactSetters];
       if (setter && value != null) {
         setter(JSON.stringify(value));
       }
     }
-  }, [updateSessionArtifact, updateNode, decomp.nodes, setPersistedCausalGraph, setPersistedStatisticalModel, setPersistedPropertyTests, setPersistedDialecticalMap, setPersistedCounterexamples]);
+  }, [updateSessionArtifact, updateNode, decomp.nodes, artifactSetters]);
 
   // --- Workspace sessions (higher-level grouping of inputs + outputs) ---
   const {
