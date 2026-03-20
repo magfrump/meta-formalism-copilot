@@ -129,7 +129,7 @@ export default function Home() {
   const isDecompMode = decomp.nodes.length > 0 && selectedNode !== null;
 
   // --- Auto-formalize queue ---
-  const { progress: queueProgress, start: startQueue, pause: pauseQueue, resume: resumeQueue, cancel: cancelQueue } = useAutoFormalizeQueue(decomp.nodes, updateNode);
+  const { progress: queueProgress, start: startQueue, pause: pauseQueue, resume: resumeQueue, cancel: cancelQueue } = useAutoFormalizeQueue(decomp.nodes, updateNode, contextText);
   const queueRunning = queueProgress.status === "running" || queueProgress.status === "paused";
 
   // Restore decomposition from localStorage once on mount
@@ -621,6 +621,7 @@ export default function Home() {
             onDecompose={handleDecompose}
             queueProgress={queueProgress}
             onFormalizeAll={startQueue}
+            globalArtifactTypes={selectedArtifactTypes}
             onPauseQueue={pauseQueue}
             onResumeQueue={resumeQueue}
             onCancelQueue={cancelQueue}
