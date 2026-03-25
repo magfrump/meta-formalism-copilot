@@ -82,6 +82,17 @@ export async function exportAllAsZip({
         if (node.leanCode.trim()) {
           nodeFolder.file("proof.lean", node.leanCode);
         }
+        // Export non-deductive artifacts stored on the node
+        for (const artifact of node.artifacts) {
+          if (!artifact.content.trim()) continue;
+          let content: string;
+          try {
+            content = JSON.stringify(JSON.parse(artifact.content), null, 2);
+          } catch {
+            content = artifact.content;
+          }
+          nodeFolder.file(`${artifact.type}.json`, content);
+        }
       });
     }
   }
