@@ -97,26 +97,38 @@ export function useWorkspacePersistence() {
   const artifactRef = useRef(artifactData);
   useEffect(() => { artifactRef.current = artifactData; }, [artifactData]);
 
+  /** Build the current save payload from refs (always fresh). */
+  const buildSaveInput = useCallback((): SaveWorkspaceInput => {
+    const s = stateRef.current;
+    return {
+      sourceText: s.sourceText,
+      extractedFiles: s.extractedFiles,
+      contextText: s.contextText,
+      semiformalText: s.semiformalText,
+      leanCode: s.leanCode,
+      semiformalDirty: s.semiformalDirty,
+      verificationStatus: s.verificationStatus,
+      verificationErrors: s.verificationErrors,
+      decomposition: decompRef.current,
+      artifacts: artifactRef.current,
+    };
+  }, []);
+
   // Stable save scheduler — reads from refs, never changes identity
   const scheduleSave = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      const s = stateRef.current;
-      const input: SaveWorkspaceInput = {
-        sourceText: s.sourceText,
-        extractedFiles: s.extractedFiles,
-        contextText: s.contextText,
-        semiformalText: s.semiformalText,
-        leanCode: s.leanCode,
-        semiformalDirty: s.semiformalDirty,
-        verificationStatus: s.verificationStatus,
-        verificationErrors: s.verificationErrors,
-        decomposition: decompRef.current,
-        artifacts: artifactRef.current,
-      };
-      saveWorkspace(input);
+      saveWorkspace(buildSaveInput());
     }, 500);
-  }, []);
+  }, [buildSaveInput]);
+
+  /** Flush any pending debounced save immediately. Call after critical state
+   *  transitions (e.g. generation complete) to avoid data loss on refresh. */
+  const flushSave = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    saveWorkspace(buildSaveInput());
+  }, [buildSaveInput]);
 
   useEffect(() => {
     scheduleSave();
@@ -265,8 +277,9 @@ export function useWorkspacePersistence() {
     setCounterexamples,
     restoredDecompState,
     persistDecompState,
+    flushSave,
     getSnapshot,
     resetToSnapshot,
     clearWorkspace,
-  }), [state, restoredDecompState, persistDecompState, setSourceText, setExtractedFiles, setContextText, setSemiformalText, setLeanCode, setSemiformalDirty, setVerificationStatus, setVerificationErrors, setCausalGraph, setStatisticalModel, setPropertyTests, setDialecticalMap, setCounterexamples, getSnapshot, resetToSnapshot, clearWorkspace]);
+  }), [state, restoredDecompState, persistDecompState, flushSave, setSourceText, setExtractedFiles, setContextText, setSemiformalText, setLeanCode, setSemiformalDirty, setVerificationStatus, setVerificationErrors, setCausalGraph, setStatisticalModel, setPropertyTests, setDialecticalMap, setCounterexamples, getSnapshot, resetToSnapshot, clearWorkspace]);
 }
