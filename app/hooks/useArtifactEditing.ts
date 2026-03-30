@@ -76,8 +76,8 @@ export function useAllArtifactEditing(artifacts: {
   setStatisticalModel: (v: string | null) => void;
   propertyTests: string | null;
   setPropertyTests: (v: string | null) => void;
-  dialecticalMap: string | null;
-  setDialecticalMap: (v: string | null) => void;
+  balancedPerspectives: string | null;
+  setBalancedPerspectives: (v: string | null) => void;
   counterexamples: string | null;
   setCounterexamples: (v: string | null) => void;
 }) {
@@ -99,10 +99,10 @@ export function useAllArtifactEditing(artifacts: {
     (json) => artifacts.setPropertyTests(json),
   );
 
-  const dialecticalMap = useArtifactEditing(
-    "dialectical-map",
-    () => artifacts.dialecticalMap,
-    (json) => artifacts.setDialecticalMap(json),
+  const balancedPerspectives = useArtifactEditing(
+    "balanced-perspectives",
+    () => artifacts.balancedPerspectives,
+    (json) => artifacts.setBalancedPerspectives(json),
   );
 
   const counterexamples = useArtifactEditing(
@@ -111,5 +111,5 @@ export function useAllArtifactEditing(artifacts: {
     (json) => artifacts.setCounterexamples(json),
   );
 
-  return { causalGraph, statisticalModel, propertyTests, dialecticalMap, counterexamples };
+  return { causalGraph, statisticalModel, propertyTests, balancedPerspectives, counterexamples };
 }

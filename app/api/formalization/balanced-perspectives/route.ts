@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { handleArtifactRoute } from "@/app/lib/formalization/artifactRoute";
-import { dialecticalMapSchema } from "@/app/lib/llm/schemas";
+import { balancedPerspectivesSchema } from "@/app/lib/llm/schemas";
 
 const SYSTEM_PROMPT = `You are a dialectical analyst. Given source text and optional context, map the dialectical structure: identify distinct perspectives, their core claims and supporting arguments, tensions between perspectives, and synthesize an equilibrium position.
 
@@ -74,16 +74,16 @@ function mockResponse(sourceText: string) {
         { perspectiveId: "perspective-b", resolution: "Empirical gap addressed by identifying testable predictions" },
       ],
     },
-    summary: "Mock dialectical map with two opposing perspectives and a synthesis.",
+    summary: "Mock balanced perspectives with two opposing perspectives and a synthesis.",
   };
 }
 
 export async function POST(request: NextRequest) {
   return handleArtifactRoute(request, {
-    endpoint: "formalization/dialectical-map",
+    endpoint: "formalization/balanced-perspectives",
     systemPrompt: SYSTEM_PROMPT,
-    responseKey: "dialecticalMap",
+    responseKey: "balancedPerspectives",
     mockResponse,
-    responseFormat: dialecticalMapSchema,
+    responseFormat: balancedPerspectivesSchema,
   });
 }

@@ -85,9 +85,9 @@ export type PropertyTestsResponse = {
   };
 };
 
-/** Dialectical Map response shape (003 §3) */
-export type DialecticalMapResponse = {
-  dialecticalMap: {
+/** Balanced Perspectives response shape (003 §3) */
+export type BalancedPerspectivesResponse = {
+  balancedPerspectives: {
     topic: string;
     perspectives: Array<{
       id: string;
@@ -164,9 +164,9 @@ export const ARTIFACT_META: Record<ArtifactType, {
     description: "Invariants, preconditions, postconditions, and data generators as executable test specs.",
     whenToUse: "Rules that should always hold, especially for computational or algorithmic claims.",
   },
-  "dialectical-map": {
-    label: "Dialectical Map",
-    chipLabel: "Dialectical Map",
+  "balanced-perspectives": {
+    label: "Balanced Perspectives",
+    chipLabel: "Balanced Perspectives",
     description: "Map of distinct viewpoints, tensions between them, and a proposed synthesis.",
     whenToUse: "Topics with multiple legitimate viewpoints where you want the full argumentative terrain.",
   },
@@ -184,7 +184,7 @@ export const SELECTABLE_ARTIFACT_TYPES: ArtifactType[] = [
   "causal-graph",
   "statistical-model",
   "property-tests",
-  "dialectical-map",
+  "balanced-perspectives",
   "counterexamples",
 ];
 
@@ -193,7 +193,7 @@ export const ARTIFACT_ROUTE: Partial<Record<ArtifactType, string>> = {
   "causal-graph": "/api/formalization/causal-graph",
   "statistical-model": "/api/formalization/statistical-model",
   "property-tests": "/api/formalization/property-tests",
-  "dialectical-map": "/api/formalization/dialectical-map",
+  "balanced-perspectives": "/api/formalization/balanced-perspectives",
   counterexamples: "/api/formalization/counterexamples",
 };
 
@@ -204,6 +204,6 @@ export const ARTIFACT_RESPONSE_KEY: Record<ArtifactType, string> = {
   "causal-graph": "causalGraph",
   "statistical-model": "statisticalModel",
   "property-tests": "propertyTests",
-  "dialectical-map": "dialecticalMap",
+  "balanced-perspectives": "balancedPerspectives",
   counterexamples: "counterexamples",
 };
