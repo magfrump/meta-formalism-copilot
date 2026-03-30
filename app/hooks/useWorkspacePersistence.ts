@@ -18,7 +18,7 @@ type WorkspaceState = {
   causalGraph: string | null;
   statisticalModel: string | null;
   propertyTests: string | null;
-  dialecticalMap: string | null;
+  balancedPerspectives: string | null;
   counterexamples: string | null;
 };
 
@@ -34,7 +34,7 @@ const DEFAULT_STATE: WorkspaceState = {
   causalGraph: null,
   statisticalModel: null,
   propertyTests: null,
-  dialecticalMap: null,
+  balancedPerspectives: null,
   counterexamples: null,
 };
 
@@ -72,7 +72,7 @@ export function useWorkspacePersistence() {
       causalGraph: data.causalGraph,
       statisticalModel: data.statisticalModel,
       propertyTests: data.propertyTests,
-      dialecticalMap: data.dialecticalMap,
+      balancedPerspectives: data.balancedPerspectives,
       counterexamples: data.counterexamples,
     });
 
@@ -90,9 +90,9 @@ export function useWorkspacePersistence() {
     causalGraph: state.causalGraph,
     statisticalModel: state.statisticalModel,
     propertyTests: state.propertyTests,
-    dialecticalMap: state.dialecticalMap,
+    balancedPerspectives: state.balancedPerspectives,
     counterexamples: state.counterexamples,
-  }), [state.causalGraph, state.statisticalModel, state.propertyTests, state.dialecticalMap, state.counterexamples]);
+  }), [state.causalGraph, state.statisticalModel, state.propertyTests, state.balancedPerspectives, state.counterexamples]);
 
   const artifactRef = useRef(artifactData);
   useEffect(() => { artifactRef.current = artifactData; }, [artifactData]);
@@ -158,7 +158,7 @@ export function useWorkspacePersistence() {
   const setCausalGraph = useCallback((v: string | null) => setState((s) => ({ ...s, causalGraph: v })), []);
   const setStatisticalModel = useCallback((v: string | null) => setState((s) => ({ ...s, statisticalModel: v })), []);
   const setPropertyTests = useCallback((v: string | null) => setState((s) => ({ ...s, propertyTests: v })), []);
-  const setDialecticalMap = useCallback((v: string | null) => setState((s) => ({ ...s, dialecticalMap: v })), []);
+  const setBalancedPerspectives = useCallback((v: string | null) => setState((s) => ({ ...s, balancedPerspectives: v })), []);
   const setCounterexamples = useCallback((v: string | null) => setState((s) => ({ ...s, counterexamples: v })), []);
 
   /** Build a PersistedWorkspace snapshot of the current state (synchronous) */
@@ -179,7 +179,7 @@ export function useWorkspacePersistence() {
       causalGraph: a.causalGraph,
       statisticalModel: a.statisticalModel,
       propertyTests: a.propertyTests,
-      dialecticalMap: a.dialecticalMap,
+      balancedPerspectives: a.balancedPerspectives,
       counterexamples: a.counterexamples,
     };
   }, []);
@@ -201,7 +201,7 @@ export function useWorkspacePersistence() {
       causalGraph: data.causalGraph,
       statisticalModel: data.statisticalModel,
       propertyTests: data.propertyTests,
-      dialecticalMap: data.dialecticalMap,
+      balancedPerspectives: data.balancedPerspectives,
       counterexamples: data.counterexamples,
     });
 
@@ -222,7 +222,7 @@ export function useWorkspacePersistence() {
         causalGraph: data.causalGraph,
         statisticalModel: data.statisticalModel,
         propertyTests: data.propertyTests,
-        dialecticalMap: data.dialecticalMap,
+        balancedPerspectives: data.balancedPerspectives,
         counterexamples: data.counterexamples,
       },
     });
@@ -271,8 +271,8 @@ export function useWorkspacePersistence() {
     setStatisticalModel,
     propertyTests: state.propertyTests,
     setPropertyTests,
-    dialecticalMap: state.dialecticalMap,
-    setDialecticalMap,
+    balancedPerspectives: state.balancedPerspectives,
+    setBalancedPerspectives,
     counterexamples: state.counterexamples,
     setCounterexamples,
     restoredDecompState,
@@ -281,5 +281,5 @@ export function useWorkspacePersistence() {
     getSnapshot,
     resetToSnapshot,
     clearWorkspace,
-  }), [state, restoredDecompState, persistDecompState, flushSave, setSourceText, setExtractedFiles, setContextText, setSemiformalText, setLeanCode, setSemiformalDirty, setVerificationStatus, setVerificationErrors, setCausalGraph, setStatisticalModel, setPropertyTests, setDialecticalMap, setCounterexamples, getSnapshot, resetToSnapshot, clearWorkspace]);
+  }), [state, restoredDecompState, persistDecompState, flushSave, setSourceText, setExtractedFiles, setContextText, setSemiformalText, setLeanCode, setSemiformalDirty, setVerificationStatus, setVerificationErrors, setCausalGraph, setStatisticalModel, setPropertyTests, setBalancedPerspectives, setCounterexamples, getSnapshot, resetToSnapshot, clearWorkspace]);
 }
