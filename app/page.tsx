@@ -73,7 +73,7 @@ export default function Home() {
     semiformalDirty, setSemiformalDirty,
     verificationStatus, setVerificationStatus,
     verificationErrors, setVerificationErrors,
-    restoredDecompState, persistDecompState,
+    restoredDecompState, persistDecompState, flushSave,
     getSnapshot: getWorkspaceSnapshot, resetToSnapshot: resetWorkspaceToSnapshot, clearWorkspace,
     causalGraph: persistedCausalGraph, setCausalGraph: setPersistedCausalGraph,
     statisticalModel: persistedStatisticalModel, setStatisticalModel: setPersistedStatisticalModel,
@@ -89,7 +89,7 @@ export default function Home() {
     "property-tests": setPersistedPropertyTests,
     "dialectical-map": setPersistedDialecticalMap,
     counterexamples: setPersistedCounterexamples,
-  } as const satisfies Partial<Record<ArtifactType, (v: string) => void>>), [setPersistedCausalGraph, setPersistedStatisticalModel, setPersistedPropertyTests, setPersistedDialecticalMap, setPersistedCounterexamples]);
+  } as const satisfies Partial<Record<ArtifactType, (v: string | null) => void>>), [setPersistedCausalGraph, setPersistedStatisticalModel, setPersistedPropertyTests, setPersistedDialecticalMap, setPersistedCounterexamples]);
 
   // --- Artifact data (persisted as JSON strings, parsed for display) ---
   const causalGraph = useMemo(() => parseJson<import("@/app/lib/types/artifacts").CausalGraphResponse["causalGraph"]>(persistedCausalGraph), [persistedCausalGraph]);
@@ -114,7 +114,7 @@ export default function Home() {
 
   // --- Artifact type selection + parallel generation ---
   const [selectedArtifactTypes, setSelectedArtifactTypes] = useState<ArtifactType[]>([]);
-  const { loadingState: artifactLoadingState, streamingJsonPreview, generateArtifacts, isAnyGenerating } = useArtifactGeneration();
+  const { loadingState: artifactLoadingState, streamingJsonPreview, generateArtifacts, clearStreamingPreviews, isAnyGenerating } = useArtifactGeneration();
 
   // --- Analytics ---
   const { entries: analyticsEntries, summary: analyticsSummary, clearAnalytics, refresh: refreshAnalytics } = useAnalytics();
@@ -397,10 +397,11 @@ export default function Home() {
     const request = { sourceText: text, context, nodeId, nodeLabel };
 
     // Clear persisted data for types being regenerated so streaming previews
-    // are visible via useStreamingMerge (which prefers finalData over preview)
+    // are visible via useStreamingMerge (which prefers finalData over preview).
+    // Use null (not "") so parseJson returns null and the preview takes priority.
     for (const type of artifactTypes) {
       const setter = artifactSetters[type as keyof typeof artifactSetters];
-      if (setter) setter("");
+      if (setter) setter(null);
     }
 
     // Navigate to the first selected artifact panel
@@ -420,10 +421,18 @@ export default function Home() {
         : Promise.resolve({} as Partial<Record<ArtifactType, unknown>>),
     ]);
 
+    // Store final results BEFORE clearing streaming previews — this ensures
+    // useStreamingMerge always has either finalData or preview, never neither.
     if (artifactResults) {
       storeArtifactResults(artifactResults, nodeId);
     }
-  }, [generateArtifacts, storeArtifactResults, setActivePanelId, artifactSetters]);
+    clearStreamingPreviews();
+
+    // Flush to localStorage after React commits the state updates above.
+    // setTimeout(0) runs after React's commit phase so refs are current,
+    // and unlike requestAnimationFrame, fires even when the tab is backgrounded.
+    setTimeout(() => flushSave(), 0);
+  }, [generateArtifacts, storeArtifactResults, clearStreamingPreviews, flushSave, setActivePanelId, artifactSetters]);
 
   /** Unified: generate all selected artifact types in parallel */
   const handleGenerate = useCallback(async () => {

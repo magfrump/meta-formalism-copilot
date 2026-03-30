@@ -99,9 +99,14 @@ export function useArtifactGeneration() {
     }
 
     setLoadingState(finalState);
+    // Caller clears previews via clearStreamingPreviews() AFTER persisting
+    // final data, avoiding a render frame with neither data nor preview.
+    return results;
+  }, []);
+
+  const clearStreamingPreviews = useCallback(() => {
     setStreamingPreview({});
     setStreamingJsonPreview({});
-    return results;
   }, []);
 
   const isAnyGenerating = useMemo(
@@ -109,5 +114,5 @@ export function useArtifactGeneration() {
     [loadingState],
   );
 
-  return { loadingState, streamingPreview, streamingJsonPreview, generateArtifacts, isAnyGenerating };
+  return { loadingState, streamingPreview, streamingJsonPreview, generateArtifacts, clearStreamingPreviews, isAnyGenerating };
 }
