@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import type { ArtifactType } from "@/app/lib/types/session";
 import type { ArtifactGenerationRequest } from "@/app/lib/types/artifacts";
 import { ARTIFACT_ROUTE, ARTIFACT_RESPONSE_KEY } from "@/app/lib/types/artifacts";
@@ -11,8 +11,23 @@ import { stripCodeFences, stripLeadingCodeFence } from "@/app/lib/utils/stripCod
 
 export type ArtifactLoadingState = Partial<Record<ArtifactType, "idle" | "generating" | "done" | "error">>;
 
+/** Return a shallow copy of `obj` with `keys` removed. Returns `obj` unchanged if no keys match. */
+function omitKeys<T extends Record<string, unknown>>(obj: T, keys: readonly string[]): T {
+  let changed = false;
+  for (const k of keys) { if (k in obj) { changed = true; break; } }
+  if (!changed) return obj;
+  const next = { ...obj };
+  for (const k of keys) delete next[k];
+  return next;
+}
+
 /**
  * Fires parallel artifact generation requests for selected types.
+ *
+ * Supports concurrent generation (e.g. global + node, or multiple nodes) by
+ * using per-type generation counters. Each call only touches state for the
+ * types it owns, and stale callbacks (from a superseded generation of the
+ * same type) are silently ignored.
  *
  * Special cases:
  * - "semiformal" calls the existing semiformal route (returns { proof })
@@ -24,6 +39,10 @@ export function useArtifactGeneration() {
   const [streamingPreview, setStreamingPreview] = useState<Partial<Record<ArtifactType, string>>>({});
   const [streamingJsonPreview, setStreamingJsonPreview] = useState<Partial<Record<ArtifactType, unknown>>>({});
 
+  // Per-type generation counter — incremented each time a type starts generating.
+  // Streaming callbacks capture the counter at call time and bail if superseded.
+  const generationIdRef = useRef<Partial<Record<ArtifactType, number>>>({});
+
   const generateArtifacts = useCallback(async (
     selectedTypes: ArtifactType[],
     request: ArtifactGenerationRequest,
@@ -32,17 +51,28 @@ export function useArtifactGeneration() {
     const types = selectedTypes.filter((t) => t !== "lean");
     if (types.length === 0) return {};
 
-    // Set all selected types to "generating"
-    const initialState: ArtifactLoadingState = {};
-    for (const t of types) initialState[t] = "generating";
-    setLoadingState(initialState);
-    setStreamingPreview({});
-    setStreamingJsonPreview({});
+    // Increment generation IDs and capture this call's snapshot
+    const myGenIds: Partial<Record<ArtifactType, number>> = {};
+    for (const t of types) {
+      generationIdRef.current[t] = (generationIdRef.current[t] ?? 0) + 1;
+      myGenIds[t] = generationIdRef.current[t];
+    }
+    const isCurrent = (type: ArtifactType) =>
+      generationIdRef.current[type] === myGenIds[type];
+
+    setLoadingState((prev) => {
+      const next = { ...prev };
+      for (const t of types) next[t] = "generating";
+      return next;
+    });
+    setStreamingPreview((prev) => omitKeys(prev, types));
+    setStreamingJsonPreview((prev) => omitKeys(prev, types));
 
     const promises = types.map(async (type): Promise<[ArtifactType, unknown | null]> => {
       try {
         if (type === "semiformal") {
           const onToken = throttle((accumulated: string) => {
+            if (!isCurrent(type)) return;
             setStreamingPreview((prev) => ({ ...prev, semiformal: accumulated }));
           }, 50);
           const proof = await generateSemiformalStreaming(request.sourceText, request.context, onToken);
@@ -55,6 +85,7 @@ export function useArtifactGeneration() {
         // Stream JSON artifacts with partial-JSON parsing for progressive rendering
         const responseKey = ARTIFACT_RESPONSE_KEY[type];
         const onPartial = throttle((accumulated: string) => {
+          if (!isCurrent(type)) return;
           try {
             const partial = parsePartialJson(stripLeadingCodeFence(accumulated));
             if (partial && typeof partial === "object") {
@@ -87,26 +118,46 @@ export function useArtifactGeneration() {
 
     const settled = await Promise.allSettled(promises);
 
+    // Build results from settled promises, discarding superseded types
     const results: Partial<Record<ArtifactType, unknown>> = {};
-    const finalState: ArtifactLoadingState = {};
-
     for (const result of settled) {
       if (result.status === "fulfilled") {
         const [type, value] = result.value;
-        finalState[type] = value != null ? "done" : "error";
-        if (value != null) results[type] = value;
+        if (value != null && isCurrent(type)) results[type] = value;
       }
     }
 
-    setLoadingState(finalState);
+    // Only update loading state for types where this generation is still current
+    setLoadingState((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const result of settled) {
+        if (result.status === "fulfilled") {
+          const [type, value] = result.value;
+          if (isCurrent(type)) {
+            next[type] = value != null ? "done" : "error";
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : prev;
+    });
+
     // Caller clears previews via clearStreamingPreviews() AFTER persisting
     // final data, avoiding a render frame with neither data nor preview.
     return results;
   }, []);
 
-  const clearStreamingPreviews = useCallback(() => {
-    setStreamingPreview({});
-    setStreamingJsonPreview({});
+  /** Clear streaming previews. Pass specific types to scope the clear,
+   *  or omit to clear all (backward-compatible fallback). */
+  const clearStreamingPreviews = useCallback((types?: ArtifactType[]) => {
+    if (!types) {
+      setStreamingPreview({});
+      setStreamingJsonPreview({});
+      return;
+    }
+    setStreamingPreview((prev) => omitKeys(prev, types));
+    setStreamingJsonPreview((prev) => omitKeys(prev, types));
   }, []);
 
   const isAnyGenerating = useMemo(

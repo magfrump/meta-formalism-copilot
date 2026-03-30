@@ -426,7 +426,7 @@ export default function Home() {
     if (artifactResults) {
       storeArtifactResults(artifactResults, nodeId);
     }
-    clearStreamingPreviews();
+    clearStreamingPreviews(nonSemiformalTypes);
 
     // Flush to localStorage after React commits the state updates above.
     // setTimeout(0) runs after React's commit phase so refs are current,
