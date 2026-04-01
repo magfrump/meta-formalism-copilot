@@ -91,7 +91,11 @@ export function useArtifactGeneration() {
             if (partial && typeof partial === "object") {
               // Extract inner value by response key (e.g. {"causalGraph": {...}} → {...})
               // so the preview matches what panels expect.
-              const inner = (partial as Record<string, unknown>)[responseKey] ?? partial;
+              // Guard: if the extracted value is an Array, it's a field name collision
+              // (e.g. counterexamples has both a response key and inner array named "counterexamples"),
+              // not an API envelope — use the full object instead.
+              const candidate = (partial as Record<string, unknown>)[responseKey];
+              const inner = (candidate != null && !Array.isArray(candidate)) ? candidate : partial;
               setStreamingJsonPreview((prev) => ({ ...prev, [type]: inner }));
             }
           } catch {
@@ -105,7 +109,10 @@ export function useArtifactGeneration() {
         try {
           const parsed = JSON.parse(stripCodeFences(finalText));
           const responseKey = ARTIFACT_RESPONSE_KEY[type];
-          return [type, parsed[responseKey] ?? parsed];
+          // Guard against field name collision (e.g. counterexamples): if the
+          // extracted value is an Array, it's an inner field, not an API envelope.
+          const candidate = parsed[responseKey];
+          return [type, (candidate != null && !Array.isArray(candidate)) ? candidate : parsed];
         } catch {
           console.error(`[${type}] Failed to parse final JSON`);
           return [type, null];
