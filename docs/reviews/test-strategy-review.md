@@ -1,8 +1,8 @@
-# Test Strategy Review: feat/graph-persistence-editing
+# Test Strategy Review: feat/graph-persistence-editing vs feat/zustand-wire-page
 
 **Date:** 2026-04-03
-**Branch:** `feat/graph-persistence-editing` vs `main`
-**Scope:** Zustand state management, streaming LLM API, artifact editing, versioned persistence, new UI components
+**Branch:** `feat/graph-persistence-editing` relative to `feat/zustand-wire-page`
+**Scope:** Graph editing operations, layout persistence, ProofGraph component editing UI, useDecomposition graph-editing wiring
 
 ---
 
@@ -13,279 +13,194 @@
 - **Location pattern:** Co-located test files (`Foo.test.tsx` next to `Foo.tsx`) for components and utils; `__tests__/` subdirectory for store tests
 - **Naming:** `describe`/`it` blocks, descriptive test names
 - **Mocking:** `vi.mock()` for module-level mocks, `vi.fn()` for individual functions
+- **Helper pattern:** `makeNode()` factory function for `PropositionNode` test data (established in `graphOperations.test.ts`)
 - **Run:** `npm test` (all), `npm run test:watch` (watch mode)
-- **Current test count:** ~20 test files under `app/`
 
 ---
 
 ## Classification of Changes by Risk
 
-### Critical (high blast radius, core data path)
+### Critical (data integrity, core logic)
 
 | File | What changed | Existing tests |
 |------|-------------|----------------|
-| `app/lib/stores/workspaceStore.ts` | **New file.** Zustand store replacing `useWorkspacePersistence`. All workspace state, artifact versioning (undo/redo), persistence, migration from v2. | `workspaceStore.test.ts`, `workspaceStore-hydration.test.ts` -- good coverage of core operations |
-| `app/lib/llm/streamLlm.ts` | **New file.** Streaming LLM call with SSE protocol, provider chain (Anthropic/OpenRouter/mock), cache integration. | `streamLlm.test.ts` -- covers mock fallback, cache hit, SSE parsing |
-| `app/lib/formalization/api.ts` | **New file.** `fetchApi`, `fetchStreamingApi` (SSE client parser), `verifyLean`, `generateLean`, streaming variants. | `fetchStreamingApi` tested via `streamLlm.test.ts` (indirect). `fetchApi` untested. |
-| `app/hooks/useArtifactGeneration.ts` | **Major rewrite.** Parallel streaming generation with per-type generation counters, supersession detection, partial-JSON preview. | **No tests.** |
-| `app/page.tsx` | **Major rewrite.** Wired to Zustand store, new `storeArtifactResults` callback with duplicated version-cap logic. | **No tests.** |
+| `app/lib/utils/graphOperations.ts` | **New file.** Pure functions: cycle detection, add/remove node, rename, update statement, add/remove edge. All graph mutations flow through these. | `graphOperations.test.ts` -- **comprehensive coverage** (7 describe blocks, 16 tests covering all exported functions, cycle detection, edge cases) |
+| `app/lib/utils/workspacePersistence.ts` | Added `coerceDecomposition` validation for `graphLayout` field (positions + viewport). Migration path for `dialecticalMap` -> `balancedPerspectives`. | **No tests for the new graphLayout coercion.** Existing `loadWorkspace` tests are in the same file pattern but don't cover layout. |
+| `app/lib/types/decomposition.ts` | Added `GraphLayout` type and `graphLayout?: GraphLayout` to `DecompositionState`. | N/A (types only) |
 
-### High (new feature logic, user-facing)
+### High (user-facing feature wiring)
 
 | File | What changed | Existing tests |
 |------|-------------|----------------|
-| `app/hooks/useArtifactEditing.ts` | **New file.** AI editing hook for structured artifacts (inline + whole-document). | **No tests.** |
-| `app/hooks/useFieldUpdaters.ts` | **New file.** `updateField`/`updateArrayItem` helpers for editing structured JSON. | **No tests.** |
-| `app/api/edit/artifact/route.ts` | **New file.** API route for AI editing of JSON artifacts. Input validation, JSON repair on LLM output. | **No tests.** |
-| `app/components/features/output-editing/EditableSection.tsx` | **New file.** Section-level inline editing with AI edit bar. | **No tests.** |
-| `app/lib/utils/stripCodeFences.ts` | **New file.** `stripCodeFences` and `stripLeadingCodeFence` for LLM output cleanup. | **No tests.** |
-| `app/lib/utils/throttle.ts` | **New file.** Throttle utility with trailing-edge delivery. | **No tests.** |
+| `app/hooks/useDecomposition.ts` | Added 7 graph editing callbacks (`addGraphNode`, `removeGraphNode`, `renameGraphNode`, `updateNodeStatement`, `addGraphEdge`, `removeGraphEdge`, `updateGraphLayout`) plus `graphLayout` in state and `resetState`. | **No tests.** |
+| `app/components/features/proof-graph/useGraphLayout.ts` | Rewritten from simple Dagre-on-every-render to incremental layout with `positionsRef`, `initialPositions` seeding, position pruning, `updateNodePosition`, and `getPositions` export. | **No tests.** |
+| `app/components/features/proof-graph/ProofGraph.tsx` | Added: drag persistence (`handleNodeDragStop`), viewport persistence (debounced `handleMoveEnd`), edge connect/delete handlers, context menu (delete/rename), inline rename dialog. | **No tests.** |
 
-### Medium (UI panels, display changes)
-
-| File | What changed | Existing tests |
-|------|-------------|----------------|
-| `app/components/panels/CausalGraphPanel.tsx` | Wired to Zustand + artifact editing + streaming preview | **No tests.** |
-| `app/components/panels/StatisticalModelPanel.tsx` | Same pattern as CausalGraphPanel | **No tests.** |
-| `app/components/panels/PropertyTestsPanel.tsx` | Same pattern | **No tests.** |
-| `app/components/panels/BalancedPerspectivesPanel.tsx` | **New file.** New artifact panel. | **No tests.** |
-| `app/components/panels/CounterexamplesPanel.tsx` | Wired to new store patterns | **No tests.** |
-| `app/components/features/onboarding/OnboardingOverlay.tsx` | **New file.** Onboarding flow. | **No tests.** |
-| `app/hooks/useStreamingMerge.ts` | **New file.** Tiny helper merging final data with streaming preview. | **No tests.** |
-
-### Low (config, types, docs)
+### Medium (peripheral changes)
 
 | File | What changed |
 |------|-------------|
-| `app/lib/types/artifactStore.ts` | New types (ArtifactKey, ArtifactVersion, ArtifactRecord, MAX_VERSIONS) |
-| `app/lib/types/artifacts.ts` | Route/response-key maps |
-| Various panel components | UI wiring changes, prop changes |
-| `docs/*`, `scripts/*` | Documentation, tooling |
+| `app/lib/stores/workspaceStore.ts` | `dialecticalMap` -> `balancedPerspectives` rename in valid keys and migration map |
+| `app/components/panels/GraphPanel.tsx` | Wires new editing callbacks from `useDecomposition` to `ProofGraph` |
+| `app/lib/types/persistence.ts` | Minor type update |
+
+### Low (docs, config, renames)
+
+| File | What changed |
+|------|-------------|
+| Various panel components | Prop threading, UI text changes |
+| `docs/*`, `CLAUDE.md`, `README.md` | Documentation updates |
+| `package.json` / `package-lock.json` | Dependency updates |
 
 ---
 
 ## Recommended Tests
 
-### 1. `stripCodeFences` and `stripLeadingCodeFence`
+### 1. `coerceDecomposition` -- graphLayout validation
 
 **Type:** Unit
-**Priority:** High
-**File:** `app/lib/utils/stripCodeFences.test.ts`
-**What it verifies:** LLM output cleanup that every artifact generation and editing path depends on.
+**Priority:** P0 (Critical)
+**File:** `app/lib/utils/workspacePersistence.test.ts` (new file, co-located)
+**What it verifies:** The `coerceDecomposition` function correctly validates and coerces persisted `graphLayout` data, preventing corrupt positions from crashing the app on load.
 **Key cases:**
-- Input with ` ```json\n{...}\n``` ` returns the inner JSON
-- Input with ` ```\n{...}\n``` ` (no language tag) returns inner content
-- Input with no fences returns the input trimmed
-- Input with multiple fence blocks returns content of the first
-- `stripLeadingCodeFence`: removes leading ` ```json\n ` but leaves rest intact (for streaming)
-- `stripLeadingCodeFence`: no-op on text without leading fence
-**Setup needed:** None -- pure functions, no mocks.
-**Effort:** Very low. ~20 minutes.
-
----
-
-### 2. `throttle` utility
-
-**Type:** Unit
-**Priority:** High
-**File:** `app/lib/utils/throttle.test.ts`
-**What it verifies:** Throttle behavior used in every streaming artifact generation path.
-**Key cases:**
-- First call executes immediately
-- Rapid calls within `ms` are collapsed; trailing call is delivered
-- After `ms` elapses, next call executes immediately again
-- `.cancel()` prevents pending trailing invocation
-- Callback receives correct arguments on both leading and trailing edge
-**Setup needed:** `vi.useFakeTimers()` for deterministic timing.
+- Valid `graphLayout` with positions `{ "node-1": { x: 100, y: 200 } }` is preserved
+- Valid `graphLayout` with viewport `{ x: 0, y: 0, zoom: 1 }` is preserved
+- `graphLayout` with non-numeric position values (e.g., `{ x: "bad", y: 200 }`) drops that entry
+- `graphLayout` with missing `positions` key results in `undefined` graphLayout
+- `graphLayout` with empty positions object (after filtering invalid entries) results in `undefined` graphLayout
+- `graphLayout` with invalid viewport (missing `zoom`) omits viewport but keeps valid positions
+- `graphLayout` absent entirely: `coerceDecomposition` returns `undefined` for graphLayout
+- Full round-trip: `coerceDecomposition` output feeds cleanly into `resetState`
+- Backward compat: `dialecticalMap` field in persisted data is read as `balancedPerspectives`
+**Setup needed:** None -- pure function, import directly. Can reuse `isObject` helper already in the module.
 **Effort:** Low. ~30 minutes.
 
 ---
 
-### 3. `useFieldUpdaters` hook
+### 2. `useGraphLayout` -- incremental positioning logic
+
+**Type:** Unit (hook test)
+**Priority:** P0 (Critical)
+**File:** `app/components/features/proof-graph/useGraphLayout.test.ts` (new file)
+**What it verifies:** The core layout algorithm: incremental Dagre only for new nodes, position persistence across re-renders, pruning of removed nodes.
+**Key cases:**
+- Empty propositions returns `{ nodes: [], edges: [] }`
+- Single node gets a Dagre-computed position (not `{ x: 0, y: 0 }`)
+- Two nodes with a dependency edge: nodes get positions and edge is created with correct `source`/`target`
+- Adding a new node to an existing graph: existing node positions are unchanged, new node gets a Dagre position
+- Removing a node: its position is pruned from the internal map
+- `initialPositions` are used on first render (seeded positions match what was passed in)
+- `initialPositions` are only seeded once (subsequent re-renders with different `initialPositions` are ignored)
+- `updateNodePosition` updates the cached position (simulating drag)
+- `getPositions` returns a plain object snapshot of all current positions
+- After `updateNodePosition`, `getPositions` reflects the new position
+- Clearing all propositions (empty array) resets the internal position map, so new propositions get fresh Dagre layout
+**Setup needed:** `renderHook` from `@testing-library/react`. Mock `dagre` module or use it directly (it's a pure layout library, safe to use unmocked). The hook uses `useRef`, `useMemo`, `useCallback` -- all work in `renderHook`.
+**Effort:** Medium. ~60 minutes (hook testing with re-render scenarios).
+
+---
+
+### 3. `useDecomposition` -- graph editing operations
+
+**Type:** Unit (hook test)
+**Priority:** P1 (High)
+**File:** `app/hooks/useDecomposition.test.ts` (new file)
+**What it verifies:** The hook correctly delegates to `graphOperations` functions, manages state transitions, and handles edge cases like deleting the selected node.
+**Key cases:**
+- `addGraphNode({ label: "Test" })` adds a node to `state.nodes` and returns its ID
+- `removeGraphNode(id)` removes the node and cleans up `dependsOn` references
+- `removeGraphNode(selectedNodeId)` also clears `selectedNodeId` to `null`
+- `removeGraphNode(otherId)` preserves `selectedNodeId`
+- `renameGraphNode(id, "New Label")` updates only that node's label
+- `updateNodeStatement(id, "New statement")` updates only that node's statement
+- `addGraphEdge(fromId, toId)` returns `true` and updates state when valid
+- `addGraphEdge` returns `false` and does not modify state when cycle would be created
+- `removeGraphEdge(fromId, toId)` removes the dependency
+- `updateGraphLayout(layout)` stores the layout in state
+- `resetState` with `graphLayout` restores layout into state
+- `resetState` without `graphLayout` sets it to `undefined`
+**Setup needed:** `renderHook` from `@testing-library/react`. Mock `fetchApi` via `vi.mock("@/app/lib/formalization/api")` to prevent network calls from `extractPropositions`. Use `act()` for state updates.
+**Effort:** Medium. ~45 minutes. The graph operations themselves are already tested in `graphOperations.test.ts`; these tests verify the hook's state management wrapping.
+
+---
+
+### 4. `graphOperations` -- additional edge cases
 
 **Type:** Unit
-**Priority:** High
-**File:** `app/hooks/useFieldUpdaters.test.ts`
-**What it verifies:** The JSON field-update logic used by all artifact panel `EditableSection` onChange handlers.
+**Priority:** P1 (High)
+**File:** `app/lib/utils/graphOperations.test.ts` (extend existing)
+**What it verifies:** Edge cases not covered by the existing 16 tests.
 **Key cases:**
-- `updateField("key", "newValue")` produces correct JSON with that field changed
-- `updateField` with same value as current is a no-op (does not call `onContentChange`)
-- `updateArrayItem("items", 1, "new")` updates the correct index
-- `updateArrayItem` with same value is a no-op
-- `data` is null: both functions are no-ops (no crash)
-- `onContentChange` is undefined: both functions are no-ops
-**Setup needed:** `renderHook` from React Testing Library.
-**Effort:** Low. ~30 minutes.
+- `addEdge` with both `fromId` and `toId` non-existent returns `null`
+- `addEdge` with only `fromId` non-existent returns `null`
+- `removeEdge` when the edge doesn't exist: returns nodes unchanged (no crash)
+- `removeNode` on a node that other nodes depend on via multiple paths: all references cleaned
+- `renameNode` with non-existent `nodeId`: returns nodes unchanged
+- `updateNodeStatement` with non-existent `nodeId`: returns nodes unchanged
+- `addNode` correctly copies `sourceId` and `sourceLabel` from input
+- `wouldCreateCycle` on a diamond graph (A->B, A->C, B->D, C->D): adding D->A detects cycle
+- Large-ish graph (10+ nodes) cycle detection terminates correctly
+- Immutability: original array is not modified by any operation
+**Setup needed:** None -- uses existing `makeNode` helper.
+**Effort:** Low. ~30 minutes (extending existing test file).
 
 ---
 
-### 4. `useArtifactEditing` hook -- selection-based string splicing
+### 5. ProofGraph component -- context menu and edge handling
 
-**Type:** Unit
-**Priority:** High
-**File:** `app/hooks/useArtifactEditing.test.ts`
-**What it verifies:** The inline edit path that splices AI-edited text into content at selection boundaries.
+**Type:** Integration (component test)
+**Priority:** P2 (Medium)
+**File:** `app/components/features/proof-graph/ProofGraph.test.tsx` (new file)
+**What it verifies:** The ProofGraph component correctly wires editing callbacks and manages UI state (context menu, rename dialog).
 **Key cases:**
-- Inline edit with selection `{start: 5, end: 10, text: "world"}` replaces those characters correctly
-- Whole-document edit replaces entire content
-- `getContent()` returning null is a no-op (no crash, no API call)
-- Loading state (`editing`) is true during request, false after
-**Setup needed:** Mock `fetchApi` via `vi.mock("@/app/lib/formalization/api")`. Use `renderHook`.
-**Effort:** Medium. ~45 minutes.
-
----
-
-### 5. `coerceArtifactVersion` / `coerceArtifactRecord` validation (via rehydration)
-
-**Type:** Integration
-**Priority:** High
-**File:** `app/lib/stores/__tests__/workspaceStore-hydration.test.ts`
-**What it verifies:** Malformed persisted data is safely rejected or defaulted during rehydration, preventing silent data loss.
-**Key cases:**
-- Version with missing `id` field is dropped
-- Version with missing `content` field is dropped
-- Version with invalid `source` (e.g. `"hacked"`) defaults to `"generated"`
-- Version with non-string `createdAt` gets a default ISO string
-- Mixed valid/invalid versions in an array: only valid ones survive
-- ArtifactRecord with empty versions array after filtering is dropped entirely
-- `currentVersionIndex` out of bounds is clamped
-**Setup needed:** Pre-populate `localStorage` with `workspace-zustand-v1` key containing malformed version entries, then call `rehydrate()`.
-**Effort:** Medium. ~45 minutes.
-
----
-
-### 6. `setArtifactsBatchGenerated` -- multi-artifact atomic update
-
-**Type:** Unit
-**Priority:** Medium
-**File:** `app/lib/stores/__tests__/workspaceStore.test.ts`
-**What it verifies:** Batch generation updates multiple artifact types atomically without clobbering existing records.
-**Key cases:**
-- Batch-generate two artifacts at once: both are stored
-- Batch-generate when one artifact already has versions: appends correctly, does not reset history
-- Batch-generate does not affect artifacts not in the batch
-- Version cap is respected when batch-appending to an artifact with many existing versions
-**Setup needed:** Direct store manipulation (already established in existing tests).
-**Effort:** Low. ~20 minutes.
-
----
-
-### 7. `resolveArtifactContent` edge cases
-
-**Type:** Unit
-**Priority:** Medium
-**File:** `app/lib/stores/__tests__/workspaceStore.test.ts`
-**What it verifies:** The helper that resolves current content from an ArtifactRecord handles degenerate inputs.
-**Key cases:**
-- `undefined` input returns `null`
-- Record with `currentVersionIndex` pointing past end of versions array returns `null` (via optional chaining)
-- Record with empty versions array returns `null`
-- Normal case returns the content at `currentVersionIndex`
-**Setup needed:** Import `resolveArtifactContent` directly (it is exported).
-**Effort:** Very low. ~15 minutes.
-
----
-
-### 8. `fetchStreamingApi` error handling
-
-**Type:** Unit
-**Priority:** Medium
-**File:** `app/lib/formalization/api.test.ts`
-**What it verifies:** The client-side SSE parser handles error events and incomplete streams.
-**Key cases:**
-- SSE stream with `event: error` throws an Error with the message
-- Stream that ends without a `done` event throws "Stream ended without a done event"
-- Non-OK HTTP response throws with error message from body
-- Malformed SSE lines (missing `data:` prefix, invalid JSON) are skipped without crashing
-**Setup needed:** Mock `globalThis.fetch` to return a `ReadableStream` body (pattern already established in `streamLlm.test.ts`).
-**Effort:** Medium. ~30 minutes.
-
----
-
-### 9. `useStreamingMerge` hook
-
-**Type:** Unit
-**Priority:** Medium
-**File:** `app/hooks/useStreamingMerge.test.ts`
-**What it verifies:** Merge logic preferring final data over streaming preview.
-**Key cases:**
-- `finalData` present: returns it regardless of `streamingPreview`
-- `finalData` null, `streamingPreview` present: returns preview
-- Both null: returns `{ displayData: null, hasDisplayData: false }`
-- `hasContent` predicate controls `hasDisplayData` even when `displayData` is non-null
-**Setup needed:** Direct function call (it's a pure function despite the `use` prefix).
-**Effort:** Very low. ~15 minutes.
-
----
-
-### 10. `edit/artifact` API route -- JSON validation
-
-**Type:** Integration
-**Priority:** Medium
-**File:** `app/api/edit/artifact/route.test.ts`
-**What it verifies:** The route validates inputs, handles LLM mock responses, and rejects invalid JSON from LLM.
-**Key cases:**
-- Missing `content` returns 400
-- Missing `instruction` returns 400
-- Whole edit with mock provider returns mock-formatted content
-- Inline edit with selection returns mock replacement text
-- `stripCodeFences` is applied to clean up LLM JSON output
-**Setup needed:** Mock `callLlm` via `vi.mock`. Construct `NextRequest` objects (pattern may need to be established; this would be the first API route test in the project).
-**Effort:** Medium-high. ~60 minutes (first API route test establishes pattern).
-
----
-
-### 11. `sanitizeDecomposition` memoization correctness
-
-**Type:** Unit
-**Priority:** Low
-**File:** `app/lib/stores/__tests__/workspaceStore-hydration.test.ts`
-**What it verifies:** Module-level memoization cache does not serve stale data.
-**Key cases:**
-- Set decomposition, flush persist timer, verify sanitized statuses in localStorage
-- Change decomposition to new reference, flush again, verify new data persisted (not cached old data)
-**Setup needed:** Store manipulation + `vi.advanceTimersByTime(300)` to flush debounced writes.
-**Effort:** Low. ~20 minutes.
+- Rendering with editing callbacks enabled shows interactive controls
+- `onConnect` callback is invoked with correct `(source, target)` when ReactFlow fires `onConnect`
+- `onEdgesDelete` callback receives `[{ source, target }]` when edges are deleted
+- Context menu appears on node right-click with Rename and Delete options
+- Delete from context menu calls `onNodeDelete(nodeId)`
+- Rename from context menu opens rename dialog; submitting calls `onNodeRename(nodeId, newLabel)`
+- Rename dialog closes on Escape without calling `onNodeRename`
+- Clicking the pane closes the context menu
+- Node drag stop calls `onLayoutChange` with positions and viewport
+- Viewport pan/zoom debounces `onLayoutChange` calls (does not fire immediately)
+**Setup needed:** Mock `reactflow` module (ReactFlow, Background, Controls). The component renders ReactFlow which needs DOM measurement APIs -- full mock or `react-flow-renderer` test utilities. This is the highest-effort test in this plan.
+**Effort:** High. ~90 minutes. ReactFlow component testing requires careful mocking of the ReactFlow internals (viewport, node positions, events).
 
 ---
 
 ## What NOT to Test
 
-### Panel components (`CausalGraphPanel`, `StatisticalModelPanel`, etc.)
-These are thin wiring layers that call hooks and render UI. The interesting logic lives in the hooks (`useArtifactEditing`, `useFieldUpdaters`, `useStreamingMerge`) and the store -- all of which are tested at the unit level. Snapshot or render tests for these panels would be brittle and add maintenance cost disproportionate to the bugs they'd catch.
+### `GraphPanel.tsx` changes
+Thin wiring layer that passes callbacks from `useDecomposition` to `ProofGraph`. The interesting logic is in the hook (test #3) and the component (test #5). Testing `GraphPanel` would duplicate coverage.
 
-### `OnboardingOverlay`
-Pure UI component with localStorage flag toggling. Risk of regression is low and detection is trivial (visual).
+### `ProofGraphNode.tsx`
+Not changed in this diff. Pure presentational component.
 
-### `useCausalGraphLayout` changes
-Layout algorithm changes are best validated visually. Unit tests for layout coordinates would be extremely brittle.
+### `useCausalGraphLayout.ts` changes
+Layout algorithm changes are best validated visually. The incremental positioning pattern is tested via `useGraphLayout` (test #2), which uses the same pattern.
 
-### `page.tsx` orchestration
-The root component is too deeply integrated (many hooks, many children) for meaningful unit testing. Its logic is better covered by testing the hooks and store it depends on, plus eventual e2e tests.
+### Panel components (`CausalGraphPanel`, etc.)
+Changes are `dialecticalMap` -> `balancedPerspectives` renames and minor UI adjustments. Not worth testing -- a typo here is caught by TypeScript, and the visual result is caught by manual testing.
 
-### `useWorkspaceSessions` changes
-Small prop threading change. The session-switching logic is not materially altered.
+### `workspaceStore.ts` valid-key rename
+The `dialecticalMap` -> `balancedPerspectives` rename in `coercePersistedState` is a one-liner change to an array literal. The existing `workspaceStore-hydration.test.ts` tests rehydration, and the rename is protected by the TypeScript `ArtifactKey` type.
 
-### Documentation files, scripts, type-only files
-No runtime behavior to test.
+### `throttle.ts`
+New utility but not changed in this diff (it was introduced in `feat/zustand-wire-page`). Already covered in the prior test strategy review.
 
 ---
 
 ## Coverage Gaps Beyond Current Scope
 
-These are pre-existing untested areas that represent significant risk:
+These are pre-existing untested areas surfaced by analyzing the graph editing feature's integration points:
 
-1. **`useFormalizationPipeline` hook** -- Orchestrates the deductive pipeline (semiformal -> lean -> verify loop). No tests. Central to the app's core workflow.
+1. **`useDecomposition` -> `extractPropositions`** -- The LLM-based extraction path, LaTeX fast path, and PDF fast path are all untested. The graph editing operations compose on top of extraction results.
 
-2. **`useDecomposition` hook** -- Manages the proposition graph. No tests. Coupled to persistence and decomposition API.
+2. **Persistence round-trip for `decomposition.graphLayout`** -- The Zustand store persists `decomposition` (including `graphLayout`) via its `partialize` function. There is no end-to-end test verifying that graph positions survive a full persist -> rehydrate cycle through the Zustand middleware. Test #1 covers `coerceDecomposition` in isolation, but the Zustand persist path is not covered.
 
-3. **`useWorkspaceSessions` hook** -- Snapshot bridge between workspace sessions and the Zustand store. No tests. A bug here loses user data on session switch.
+3. **`addGraphEdge` stale closure risk** -- The `useDecomposition.addGraphEdge` callback reads `state.nodes` directly (not via setState updater) to return a synchronous boolean. If React batches a state update between the read and the setState, the edge could be applied to stale state. The code has a comment acknowledging this. A concurrent-mode integration test would be needed to verify this, but is impractical with current tooling.
 
-4. **`useAutoFormalizeQueue` hook** -- Automatic formalization queue for decomposed nodes. No tests. Complex async state machine.
-
-5. **`callLlm` provider chain** -- The non-streaming LLM call. Only the streaming variant (`streamLlm`) has tests. The original `callLlm` function has no test file.
-
-6. **localStorage quota handling** -- The old `saveWorkspace` tested quota errors. The new debounced Zustand storage adapter catches errors silently. No test verifies the error is caught (only that the `catch` exists).
+4. **`page.tsx` orchestration** -- The root component wires `useDecomposition` graph editing methods to `ProofGraph` via `GraphPanel`. No integration test covers this wiring path end-to-end.
 
 ---
 
@@ -293,11 +208,10 @@ These are pre-existing untested areas that represent significant risk:
 
 | Order | Tests | Estimated time | Cumulative risk reduced |
 |-------|-------|---------------|------------------------|
-| 1 | #1 `stripCodeFences` + #2 `throttle` | ~50 min | Covers utilities used by every generation + editing path |
-| 2 | #3 `useFieldUpdaters` + #7 `resolveArtifactContent` + #9 `useStreamingMerge` | ~50 min | Quick wins, pure logic |
-| 3 | #5 Rehydration validation (coerce*) | ~45 min | Protects persisted data integrity |
-| 4 | #4 `useArtifactEditing` + #6 `setArtifactsBatchGenerated` | ~65 min | Covers editing + batch generation |
-| 5 | #8 `fetchStreamingApi` error paths | ~30 min | Client-side resilience |
-| 6 | #10 API route, #11 memo correctness | ~80 min | Lower priority, higher effort |
+| 1 | #4 `graphOperations` edge cases | ~30 min | Extends already-good coverage of the core graph mutation layer |
+| 2 | #1 `coerceDecomposition` graphLayout validation | ~30 min | Protects against corrupt persisted layout data crashing on load |
+| 3 | #2 `useGraphLayout` incremental positioning | ~60 min | Covers the key new abstraction: position persistence + incremental Dagre |
+| 4 | #3 `useDecomposition` graph editing hooks | ~45 min | Verifies state management wiring for all graph editing operations |
+| 5 | #5 ProofGraph component integration | ~90 min | UI-level integration; lower priority because underlying logic is covered by #1-#4 |
 
-**Total estimated time: ~5-6 hours** for all recommended tests. Tests 1-3 (the first ~2.5 hours) cover the highest-value gaps.
+**Total estimated time: ~4 hours** for all recommended tests. Tests 1-3 (the first ~2 hours) cover the highest-value gaps: data integrity on load, core graph operations, and the incremental layout algorithm. Test #4 adds hook-level confidence. Test #5 is optional for this PR -- the underlying logic is well-covered by unit tests, and the component is best verified by manual testing with the ReactFlow canvas.

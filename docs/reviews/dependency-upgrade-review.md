@@ -1,40 +1,12 @@
-# Dependency Upgrade Review: `feat/graph-persistence-editing`
+# Dependency Upgrade Review: `feat/graph-persistence-editing` vs `feat/zustand-wire-page`
 
-Reviewed relative to `main` on 2026-04-03. Branch adds 2 new production dependencies and upgrades 10 existing dependencies (6 production, 4 dev).
+Reviewed on 2026-04-03. Branch adds 1 new production dependency and upgrades 9 existing dependencies (4 production, 5 dev).
+
+Note: `zustand` is already present in the base branch (`feat/zustand-wire-page`) and is not part of this diff.
 
 ---
 
 ## New Dependencies
-
----
-
-## Dependency Evaluation: zustand (new) ^5.0.12
-
-### Summary
-
-| Aspect | Assessment |
-|--------|-----------|
-| **Recommendation** | Add the dependency |
-| **Breaking change impact** | None (new dependency) |
-| **Estimated effort** | Already implemented |
-| **Risk** | Low |
-
-### Motivation
-
-Replaces ~20 `useState` calls in `page.tsx` with a centralized store using `persist` middleware. Decision documented in `docs/decisions/005-zustand-state-management.md`, validated via prior spike.
-
-### Codebase Usage
-
-- `app/lib/stores/workspaceStore.ts` — single store using `create`, `persist`, `createJSONStorage`
-
-### Transitive Effects
-
-- **Dual zustand versions in bundle:** ReactFlow 11.x depends on zustand ^4.4.1. npm nests `zustand@4.5.7` under `@reactflow/*` packages while top-level resolves to `zustand@5.0.12`. These are separate module instances with no shared state — safe.
-- Bundle size increase is minimal (~3KB gzipped) since zustand v4 was already present as a transitive dep.
-
-### Risk Factors
-
-- Low. Zustand is mature (46k+ stars, ~40M weekly npm downloads). SSR handled correctly via `skipHydration: true` with explicit rehydration in `useEffect`.
 
 ---
 
@@ -124,11 +96,11 @@ No breaking changes between 16.1 and 16.2. Significant performance improvements:
 
 ### Breaking Changes That Affect This Project
 
-None. [Next.js 16.2 blog post](https://nextjs.org/blog/next-16-2) confirms no breaking changes.
+None. Next.js 16.2 confirms no breaking changes.
 
 ### Known Issues
 
-- [Issue #91642](https://github.com/vercel/next.js/issues/91642): Build failure related to Turbopack and `fflate` module resolution. This project does **not** use Turbopack (no turbopack config found in the codebase), so this issue does not apply.
+- [Issue #91642](https://github.com/vercel/next.js/issues/91642): Build failure related to Turbopack and `fflate` module resolution. This project does **not** use Turbopack, so this issue does not apply.
 
 ### Transitive Effects
 
@@ -294,14 +266,30 @@ Patch bumps for the build tool and test runner. Bug fixes and stability improvem
 
 ---
 
+## Transitive Dependency Changes (Notable)
+
+| Package | From | To | Notes |
+|---------|------|----|-------|
+| `@napi-rs/canvas` | 0.1.95 | 0.1.97 | Optional dep of jsdom; platform-specific binaries |
+| `@oxc-project/types` | 0.115.0 | 0.122.0 | Transitive of vite/rolldown; internal types only |
+| `@oxc-project/runtime` | 0.115.0 | removed | Consolidated into other oxc packages |
+| `rolldown` bindings | rc.9 | rc.12 | Transitive of vite; platform-specific binaries |
+| `@next/*` SWC binaries | 16.1.7 | 16.2.1 | Tracks Next.js version |
+
+None of these transitive changes affect the project's API surface. They are automatically resolved by npm.
+
+---
+
 ## Overall Assessment
 
-**All dependency changes are safe to merge.** The branch adds two well-justified new dependencies (zustand for state management, partial-json for streaming preview) and applies routine version bumps across production and dev dependencies. No breaking changes affect this project's usage patterns.
+**All dependency changes are safe to merge.** The branch adds one well-justified new dependency (partial-json for streaming preview) and applies routine version bumps across production and dev dependencies. No breaking changes affect this project's usage patterns.
 
 | Category | Count | Risk |
 |----------|-------|------|
-| New production deps | 2 (zustand, partial-json) | Low — both well-documented with decision records |
+| New production deps | 1 (partial-json) | Low — documented in design doc, zero transitive deps |
 | Production upgrades | 4 (anthropic-sdk, next, katex, pdfjs-dist) | Low — all patch/minor bumps, no breaking changes |
 | Dev upgrades | 5 (@types/node, eslint, eslint-config-next, jsdom, vite, vitest) | Low — tooling bumps only |
+
+**No migration plan needed.** All changes are drop-in compatible with zero code modifications required.
 
 **No action items.** All changes can proceed as-is.
