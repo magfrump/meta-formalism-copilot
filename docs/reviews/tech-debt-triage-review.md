@@ -1,21 +1,21 @@
-# Tech Debt Triage Review: feat/graph-persistence-editing vs main
+# Tech Debt Triage Review: feat/graph-persistence-editing vs feat/zustand-wire-page
 
-**Branch:** `feat/graph-persistence-editing` (86 files changed, ~8K lines vs main)
+**Branch:** `feat/graph-persistence-editing` relative to `feat/zustand-wire-page`
 **Reviewed:** 2026-04-03
-**Scope:** Full branch diff. This is an integration branch merging multiple feature branches: Zustand state management, streaming API, artifact editing, onboarding overlay, dialectical-map rename, UI visibility improvements, and dependency updates.
+**Scope:** 87 files changed, ~6400 additions, ~1800 deletions. This diff layers streaming API, artifact editing, onboarding, graph persistence/editing, balanced-perspectives rename, and UI visibility changes on top of the Zustand store migration.
 
 ---
 
-## Tech Debt Triage: Duplicated `recordAndCache` between `callLlm.ts` and `streamLlm.ts`
+## TD-1: Duplicated `recordAndCache` between `callLlm.ts` and `streamLlm.ts`
 
-**Location:** `app/lib/llm/callLlm.ts` (line 77), `app/lib/llm/streamLlm.ts` (line 35)
-**Nature:** structural
+**Location:** `app/lib/llm/callLlm.ts` (line ~77), `app/lib/llm/streamLlm.ts` (line ~35)
+**Nature:** structural duplication
 
 ### Carrying Cost: Medium
-The two implementations have slightly different signatures (callLlm's version takes a `cacheKey` parameter and returns a `CallLlmResult`; streamLlm's version takes only the hash and returns void). Both perform the same analytics-write + cache-write pattern. If the analytics entry shape changes, the caching strategy changes, or error handling needs adjustment, both must be updated. The comment in `streamLlm.ts` ("same as callLlm's recordAndCache") acknowledges the duplication explicitly, which means a future developer will know to check both, but it is still a maintenance risk.
+Two implementations of the same analytics-write + cache-write pattern with slightly different signatures. `callLlm`'s version takes a `cacheKey` param and returns `CallLlmResult`; `streamLlm`'s takes only the hash and returns void. The `streamLlm` version also omits the `cacheKey` field when writing to cache, which means cached streaming results lack the key needed for cache invalidation. Any change to analytics entry shape, caching strategy, or error handling must be applied twice. The comment "same as callLlm's recordAndCache" is helpful but does not prevent drift.
 
 ### Fix Cost
-- **Scope:** localized (two files in the same directory)
+- **Scope:** localized (two files in `lib/llm/`)
 - **Effort:** hours
 - **Risk:** low
 - **Incremental?** yes
@@ -25,64 +25,180 @@ The two implementations have slightly different signatures (callLlm's version ta
 - Changing analytics schema or cache format
 
 ### Recommendation: Fix opportunistically
-Extract a shared `recordAndCache` into a common module (e.g., `app/lib/llm/analytics.ts`). The signatures differ slightly, so the shared version would need to be parameterized, but the core logic is identical. Worth doing next time either file is touched.
+Extract a shared `recordAndCache` into `app/lib/llm/analytics.ts` or a shared module. Parameterize the return type.
 
 ---
 
-## Tech Debt Triage: `page.tsx` remains a ~860-line monolithic orchestrator
+## TD-2: `page.tsx` remains an ~860-line monolithic orchestrator (growing)
 
 **Location:** `app/page.tsx`
 **Nature:** structural
 
 ### Carrying Cost: High
-The root `page.tsx` is the single largest file in the app (860 lines). It manages: panel navigation, Zustand store subscriptions (39 `useWorkspaceStore` calls), decomposition state bridging, formalization pipeline wiring, session management, artifact generation callbacks, export handlers, and panel rendering. The Zustand migration improved things (removed ~40 lines of ref-juggling) but added new bridging code for `PersistedWorkspace` snapshots (~60 lines). Any new artifact type requires touching at least 5 sections of this file. Cognitive load for contributors is high; merge conflicts are likely if multiple features touch state wiring simultaneously.
+This diff adds ~30 net lines to `page.tsx`: graph editing handlers (`handleAddNode`, `handleDeleteEdges`), graph layout persistence wiring, `updateGraphLayout` in the decomposition persistence effect, and 7 new props passed through to `GraphPanel`. The `renderPanel` callback's dependency array now lists 28 items. Each new feature (graph editing, streaming previews, balanced-perspectives rename) required touching 3-6 sections of this file. The file is still well-organized with clear sections, but the surface area for merge conflicts continues to grow.
 
 ### Fix Cost
-- **Scope:** cross-cutting (would need to design sub-orchestrators or context providers)
+- **Scope:** cross-cutting (would need sub-orchestrators or context providers)
 - **Effort:** days
-- **Risk:** medium (risk of introducing subtle re-render regressions)
+- **Risk:** medium (re-render regressions)
 - **Incremental?** yes (can extract one concern at a time)
 
 ### Urgency Triggers
 - Adding more artifact types (each adds ~20 lines across multiple sections)
-- Multiple contributors working on state-related features concurrently
-- Performance profiling reveals unnecessary re-renders from the flat subscription pattern
+- Multiple contributors working concurrently on state-related features
+- `renderPanel` dependency array exceeding ~30 items (performance/correctness risk)
 
 ### Recommendation: Defer and monitor
-The file is large but well-organized with clear sections. The Zustand migration actually makes future extraction easier since store access can move to child components without prop drilling. Wait until a concrete pain point (merge conflict, performance issue, or 7+ artifact types) before refactoring. When the time comes, the natural extraction boundaries are: (1) artifact state bridging into a custom hook, (2) formalization pipeline callbacks into a hook, (3) panel rendering into a separate component.
+The Zustand store already decouples state management, making future extraction easier. The natural first extraction would be the graph editing concern: `handleAddNode`, `handleDeleteEdges`, `updateGraphLayout`, and the layout persistence effect could move into a `useGraphEditing` hook. Wait for a concrete pain point before acting.
 
 ---
 
-## Tech Debt Triage: `PersistedWorkspace` bridge layer between Zustand store and workspace sessions
+## TD-3: `addGraphEdge` stale closure bug risk in `useDecomposition`
 
-**Location:** `app/page.tsx` (lines 107-161), `app/lib/stores/workspaceStore.ts` (lines 237-276)
+**Location:** `app/hooks/useDecomposition.ts` (line ~147)
+**Nature:** correctness risk
+
+### Carrying Cost: High
+`addGraphEdge` reads `state.nodes` directly (not via `setState` updater) to perform cycle detection and returns a synchronous boolean. This creates a stale closure risk: if two edges are added in rapid succession (e.g., user draws two edges quickly), the second call reads the pre-first-edge `state.nodes` because React may not have re-rendered yet. The comment "Read state directly to avoid React 18 batching race" acknowledges the tradeoff but picks the wrong side -- the updater function pattern is specifically designed for this. The current approach trades correctness (stale reads) for convenience (synchronous return value).
+
+In practice, human interaction speed makes rapid double-edge unlikely, but the pattern is fragile and a bad precedent. All other graph operations in the same file correctly use the `setState` updater pattern.
+
+### Fix Cost
+- **Scope:** localized (single function, ~10 lines)
+- **Effort:** hours
+- **Risk:** low
+- **Incremental?** yes
+
+### Urgency Triggers
+- Adding programmatic edge creation (e.g., from LLM suggestions)
+- Any automated graph editing that could trigger rapid successive calls
+
+### Recommendation: Fix now
+Use `useRef` to hold the latest nodes (updated by a `useEffect`) for the cycle check, or restructure so `addGraphEdge` uses the `setState` updater and communicates success via a callback or event rather than a synchronous return value.
+
+---
+
+## TD-4: `PersistedWorkspace` bridge layer between Zustand store and workspace sessions
+
+**Location:** `app/page.tsx` (lines ~107-161), `app/lib/stores/workspaceStore.ts` (lines ~237-276)
 **Nature:** structural
 
 ### Carrying Cost: Medium
-The workspace sessions system (`useWorkspaceSessions`) still speaks `PersistedWorkspace` -- the old flat-field format where artifacts are `string | null`. The Zustand store uses `ArtifactRecord` with version history. Every session save/restore round-trips through conversion code in `page.tsx` (`getWorkspaceSnapshot` maps store to PersistedWorkspace; `resetWorkspaceToSnapshot` maps PersistedWorkspace back to store with single-version ArtifactRecords). This means session restore discards version history (acknowledged as item #6 in the prior review). The `PERSISTED_ARTIFACT_FIELDS` mapping and `makeVersion` are imported from the store into `page.tsx`, creating a conceptual coupling between store internals and the page orchestrator.
+Workspace sessions still speak `PersistedWorkspace` (old flat-field format where artifacts are `string | null`). The Zustand store uses `ArtifactRecord` with version history. Session save/restore round-trips through conversion code that discards undo history. The `PERSISTED_ARTIFACT_FIELDS` mapping creates tight coupling between store internals and the page orchestrator. This diff does not change this situation but adds `graphLayout` to the persistence path, further entrenching the pattern.
 
 ### Fix Cost
-- **Scope:** cross-cutting (touches workspace sessions, page.tsx, store, persistence types)
+- **Scope:** cross-cutting (workspace sessions, page.tsx, store, persistence types)
 - **Effort:** days
-- **Risk:** medium (session data format is persisted in localStorage; migration needed)
-- **Incremental?** partially (could update the session format first, then remove bridging code)
+- **Risk:** medium (localStorage migration needed)
+- **Incremental?** partially
 
 ### Urgency Triggers
-- Users rely on undo/redo and expect it to survive session switches
-- Adding more fields to `ArtifactRecord` (e.g., metadata, tags)
+- Users expecting undo/redo to survive session switches
+- Adding more fields to `ArtifactRecord`
 
 ### Recommendation: Fix opportunistically
-The version history loss on session switch is currently acceptable because the feature is new and users have not yet built workflows around undo/redo persistence. When workspace sessions are next touched, update `WorkspaceSession.workspace` to store `WorkspaceState` directly instead of `PersistedWorkspace`, which would eliminate the bridge layer entirely.
+When workspace sessions are next touched, update `WorkspaceSession.workspace` to store `WorkspaceState` directly.
 
 ---
 
-## Tech Debt Triage: Unused `useAllArtifactEditing` hook
+## TD-5: Streaming/non-streaming API duality
 
-**Location:** `app/hooks/useArtifactEditing.ts` (lines 70-115)
-**Nature:** structural (dead code)
+**Location:** `app/lib/formalization/api.ts`, `app/hooks/useArtifactGeneration.ts`, `app/lib/formalization/formalizeNode.ts`
+**Nature:** structural
+
+### Carrying Cost: Medium
+The diff adds streaming variants (`generateSemiformalStreaming`, `generateLeanStreaming`, `fetchStreamingApi`) alongside existing non-streaming versions. The global pipeline uses streaming; the auto-formalize queue (`formalizeNode.ts`) still uses non-streaming `fetchApi`. Two code paths for the same LLM calls with different error handling, response parsing, and progress reporting. The API routes now conditionally branch on `stream: true`.
+
+### Fix Cost
+- **Scope:** cross-cutting
+- **Effort:** days
+- **Risk:** medium (auto-queue has its own concurrency/cancel logic)
+- **Incremental?** yes (one call site at a time)
+
+### Urgency Triggers
+- Removing the `stream: true` conditional from API routes
+- Users wanting progress feedback during auto-formalization
+
+### Recommendation: Carry intentionally
+The non-streaming path is functional and well-tested. Migrating it to streaming requires handling SSE parsing + cancel-signal interaction. Worth doing eventually, not blocking today.
+
+---
+
+## TD-6: `EditableSection` makes direct API calls from a UI component
+
+**Location:** `app/components/features/output-editing/EditableSection.tsx` (lines ~77-88)
+**Nature:** structural
 
 ### Carrying Cost: Low
-The `useAllArtifactEditing` convenience hook is exported but has zero callers. Its docstring references `useWorkspacePersistence` (the deleted hook), suggesting it was written for an earlier integration plan that was superseded. It takes `string | null` + setter pairs as arguments, which does not match how `page.tsx` actually manages artifact state (via Zustand selectors). The individual `useArtifactEditing` hook is used, but this aggregate wrapper is not.
+`EditableSection` imports `fetchApi` and calls `/api/edit/whole` and `/api/edit/artifact` directly, bypassing the `useArtifactEditing` hook. This violates the app's pattern where components receive callbacks from hooks. No loading state visible to parent, no wait-time estimation, no cancellation support.
+
+### Fix Cost
+- **Scope:** localized (one component + one hook)
+- **Effort:** hours
+- **Risk:** low
+- **Incremental?** yes
+
+### Urgency Triggers
+- Users requesting cancel for section edits
+- Need to track analytics for section-level AI edits
+
+### Recommendation: Fix opportunistically
+Lift the API call into a callback from the parent, consistent with `onAiEdit` for whole-document edits.
+
+---
+
+## TD-7: Incomplete rename from "dialectical-map" to "balanced-perspectives"
+
+**Location:** `app/components/features/onboarding/OnboardingOverlay.tsx`, `app/api/formalization/balanced-perspectives/route.ts`
+**Nature:** naming inconsistency
+
+### Carrying Cost: Low
+The rename is ~95% complete. Residual references: (1) the system prompt still says "dialectical analyst" and "dialectical landscape", (2) minor inconsistencies in onboarding text. The persistence layer correctly handles the old field name as a migration fallback.
+
+### Fix Cost
+- **Scope:** localized (string literals)
+- **Effort:** minutes
+- **Risk:** low
+- **Incremental?** yes
+
+### Urgency Triggers
+- User-facing inconsistency in prompts or onboarding
+
+### Recommendation: Fix now
+Two-line fix with no architectural impact.
+
+---
+
+## TD-8: Dual localStorage keys without cleanup (`workspace-v2` + `workspace-zustand-v1`)
+
+**Location:** `app/lib/stores/workspaceStore.ts` (lines ~474-490)
+**Nature:** structural
+
+### Carrying Cost: Medium
+The `onRehydrateStorage` callback checks for `workspace-v2` on every app load. It never cleans up the old key after successful migration. Stale data occupies localStorage quota indefinitely. If a Zustand store bug causes data loss, the app might silently re-migrate stale v2 data.
+
+### Fix Cost
+- **Scope:** localized
+- **Effort:** hours
+- **Risk:** low
+- **Incremental?** yes
+
+### Urgency Triggers
+- Users with large workspaces hitting localStorage quota
+- Enough time passes to drop old format support
+
+### Recommendation: Fix opportunistically
+Add `localStorage.removeItem` after successful migration.
+
+---
+
+## TD-9: Unused `useAllArtifactEditing` hook (dead code)
+
+**Location:** `app/hooks/useArtifactEditing.ts` (lines ~70+)
+**Nature:** dead code
+
+### Carrying Cost: Low
+The `useAllArtifactEditing` convenience hook is exported but has zero callers. Its docstring references `useWorkspacePersistence` (deleted hook), suggesting it was written for an earlier integration plan. ~45 lines of dead code with an outdated API surface.
 
 ### Fix Cost
 - **Scope:** localized (single file, single function)
@@ -94,153 +210,39 @@ The `useAllArtifactEditing` convenience hook is exported but has zero callers. I
 - None (dead code has zero runtime impact)
 
 ### Recommendation: Fix now
-Delete `useAllArtifactEditing` and the stale docstring. It is ~45 lines of dead code with an outdated API surface that could mislead future developers.
+Delete `useAllArtifactEditing` and the stale docstring.
 
 ---
 
-## Tech Debt Triage: Streaming/non-streaming API duality for artifact generation
-
-**Location:** `app/lib/formalization/api.ts`, `app/hooks/useArtifactGeneration.ts`, `app/lib/formalization/formalizeNode.ts`
-**Nature:** structural
-
-### Carrying Cost: Medium
-The branch adds streaming variants (`generateSemiformalStreaming`, `generateLeanStreaming`, `fetchStreamingApi`) alongside the existing non-streaming versions (`generateSemiformal`, `generateLean`, `fetchApi`). The global pipeline and artifact generation hook use streaming; the auto-formalize queue (`formalizeNode.ts`) still uses non-streaming `fetchApi`. This means there are two code paths for the same LLM calls, with different error handling, response parsing, and progress reporting. The non-streaming path lacks the partial-JSON preview feature and the throttled callback pattern. If API routes change their response format, both paths must be updated.
-
-### Fix Cost
-- **Scope:** cross-cutting (api.ts, formalizeNode.ts, useAutoFormalizeQueue.ts, multiple API routes)
-- **Effort:** days
-- **Risk:** medium (formalizeNode runs in the auto-queue which has its own concurrency/cancel logic)
-- **Incremental?** yes (can migrate one call site at a time)
-
-### Urgency Triggers
-- Removing the `stream: true` conditional from API routes (simplification)
-- Users noticing that decomposed-node formalization has no progress feedback
-
-### Recommendation: Carry intentionally
-The non-streaming path in `formalizeNode` is functional and well-tested. Migrating it to streaming requires handling the interaction between SSE parsing and the cancel-signal mechanism in `useAutoFormalizeQueue`. This is worth doing eventually (users would benefit from progress feedback during auto-formalization), but it is not blocking anything today.
-
----
-
-## Tech Debt Triage: Incomplete rename from "dialectical-map" to "balanced-perspectives"
-
-**Location:** `app/components/features/onboarding/OnboardingOverlay.tsx` (line 79), `app/api/formalization/balanced-perspectives/route.ts` (lines 5, 34)
-**Nature:** naming
-
-### Carrying Cost: Low
-The rename from "dialectical map" to "balanced perspectives" is ~95% complete across the codebase. Two residual references remain: (1) the onboarding overlay still says "Dialectical Map" in the artifact type grid, and (2) the API route's system prompt still says "dialectical analyst" and "dialectical landscape". The persistence layer (`workspacePersistence.ts` line 215) correctly handles the old field name as a migration fallback, which is appropriate. These are cosmetic inconsistencies that users might notice in the onboarding overlay.
-
-### Fix Cost
-- **Scope:** localized (two files, string literals only)
-- **Effort:** minutes
-- **Risk:** low
-- **Incremental?** yes
-
-### Urgency Triggers
-- User-facing inconsistency in onboarding text
-
-### Recommendation: Fix now
-Update the onboarding overlay text and the system prompt strings. This is a two-line fix with no architectural impact.
-
----
-
-## Tech Debt Triage: Dual localStorage keys (`workspace-v2` + `workspace-zustand-v1`)
-
-**Location:** `app/lib/stores/workspaceStore.ts` (lines 474-490)
-**Nature:** structural
-
-### Carrying Cost: Medium
-The `onRehydrateStorage` callback checks for `workspace-v2` on every app load to decide whether to run migration. It never cleans up the old key after successful migration. This means: (1) the migration check runs on every load indefinitely, (2) stale data in `workspace-v2` occupies localStorage quota, and (3) if a bug in the Zustand store causes data loss, the app might silently re-migrate stale v2 data, which would be confusing.
-
-### Fix Cost
-- **Scope:** localized (single file)
-- **Effort:** hours
-- **Risk:** low (add `localStorage.removeItem(WORKSPACE_KEY)` after successful migration)
-- **Incremental?** yes
-
-### Urgency Triggers
-- Users with large workspaces hitting localStorage quota
-- A long enough time passes that the old format is no longer worth supporting
-
-### Recommendation: Fix opportunistically
-Add cleanup of the old key after successful migration. Optionally add a version timestamp so the migration path can be removed entirely after a release cycle.
-
----
-
-## Tech Debt Triage: `EditableSection` makes direct API calls from a UI component
-
-**Location:** `app/components/features/output-editing/EditableSection.tsx` (lines 77-88)
-**Nature:** structural
-
-### Carrying Cost: Low
-`EditableSection` imports `fetchApi` and makes HTTP calls directly (`/api/edit/whole` for strings, `/api/edit/artifact` for JSON objects) in its `handleAiEdit` callback. The `useArtifactEditing` hook exists for exactly this purpose but `EditableSection` does not use it. This violates the app's pattern where components receive callbacks from hooks rather than making API calls directly. It also means there is no loading state visible to the parent, no wait-time estimation, and no way to cancel an in-flight section edit.
-
-### Fix Cost
-- **Scope:** localized (one component + one hook)
-- **Effort:** hours
-- **Risk:** low
-- **Incremental?** yes
-
-### Urgency Triggers
-- Users request cancel support for section edits
-- Need to add analytics tracking for section-level AI edits
-
-### Recommendation: Fix opportunistically
-Lift the API call into a callback passed from the parent (consistent with `onAiEdit` for whole-document edits on `ArtifactPanelShell`). This would also enable the parent to track loading state for section edits.
-
----
-
-## Tech Debt Triage: `useFieldUpdaters` uses `any` casts and untyped dynamic key access
+## TD-10: `useFieldUpdaters` uses `any` casts and untyped dynamic key access
 
 **Location:** `app/hooks/useFieldUpdaters.ts` (lines 15, 22)
 **Nature:** typing
 
 ### Carrying Cost: Low
-The `updateField` and `updateArrayItem` functions use `(data as any)[key]` for dynamic key access, with eslint-disable comments. This is a pragmatic choice for a generic hook, but it means TypeScript cannot verify that the key exists on the data object or that the value type is correct. A typo in a key string would not be caught at compile time.
-
-### Fix Cost
-- **Scope:** localized (single file)
-- **Effort:** hours (would need generics with keyof constraints)
-- **Risk:** low
-- **Incremental?** yes
-
-### Urgency Triggers
-- None (the hook is called from ~5 panels with well-known schemas; bugs would be caught quickly in manual testing)
-
-### Recommendation: Carry intentionally
-The `any` casts are documented and constrained to two lines. Adding proper generics would complicate the hook's API for callers with minimal practical benefit, since the artifact schemas are stable and changes are immediately visible in the UI.
-
----
-
-## Tech Debt Triage: 307-line onboarding overlay with inline SVG icons
-
-**Location:** `app/components/features/onboarding/OnboardingOverlay.tsx`
-**Nature:** structural
-
-### Carrying Cost: Low
-The onboarding overlay is a 307-line component with ~120 lines of inline SVG icons embedded in the `steps` array. The SVGs are not reused elsewhere and are defined as JSX literals in module scope. This makes the file long and hard to scan, but it is entirely self-contained with no external dependencies beyond React. The content (step text) will need updating as the product evolves.
+`updateField` and `updateArrayItem` use `(data as any)[key]` with eslint-disable comments. TypeScript cannot verify key existence or value types. A typo in a key string would not be caught at compile time.
 
 ### Fix Cost
 - **Scope:** localized
-- **Effort:** hours
+- **Effort:** hours (generics with `keyof` constraints)
 - **Risk:** low
 - **Incremental?** yes
 
 ### Urgency Triggers
-- Need to add/remove onboarding steps frequently
-- Want to A/B test onboarding content
+- None (artifact schemas are stable, bugs caught quickly in manual testing)
 
 ### Recommendation: Carry intentionally
-The SVGs are specific to this component and unlikely to be reused. Extracting them to separate icon components would add files without reducing total complexity. If the onboarding content needs frequent updates, consider extracting the step definitions to a separate data file.
+The `any` casts are documented and constrained to two lines. The practical benefit of proper generics is minimal given the stable schemas.
 
 ---
 
-## Tech Debt Triage: Dead code in `workspacePersistence.ts`
+## TD-11: Dead code in `workspacePersistence.ts`
 
 **Location:** `app/lib/utils/workspacePersistence.ts` (exported `saveWorkspace`, `SaveWorkspaceInput`, `ArtifactPersistenceData`)
-**Nature:** structural (dead code)
+**Nature:** dead code
 
 ### Carrying Cost: Low
-These exports were used by the now-deleted `useWorkspacePersistence` hook. They remain exported and have test coverage, but no production code calls them. The `loadWorkspace` function is still used (for v2 migration), but the save-side functions are dead.
+These exports were used by the now-deleted `useWorkspacePersistence` hook. The save-side functions are dead; `loadWorkspace` is still used for v2 migration.
 
 ### Fix Cost
 - **Scope:** localized
@@ -252,7 +254,98 @@ These exports were used by the now-deleted `useWorkspacePersistence` hook. They 
 - None
 
 ### Recommendation: Fix opportunistically
-Remove `saveWorkspace`, `SaveWorkspaceInput`, `ArtifactPersistenceData`, and their tests. Keep `loadWorkspace` and the coercion functions which are still used.
+Remove `saveWorkspace`, `SaveWorkspaceInput`, `ArtifactPersistenceData`, and their tests. Keep `loadWorkspace` and coercion functions.
+
+---
+
+## TD-12: 307-line onboarding overlay with inline SVG icons
+
+**Location:** `app/components/features/onboarding/OnboardingOverlay.tsx`
+**Nature:** structural
+
+### Carrying Cost: Low
+~120 lines of inline SVG icons embedded in the `steps` array. The component is self-contained with no external dependencies beyond React. The content will need updating as the product evolves.
+
+### Fix Cost
+- **Scope:** localized
+- **Effort:** hours
+- **Risk:** low
+
+### Urgency Triggers
+- Need to add/remove onboarding steps frequently
+
+### Recommendation: Carry intentionally
+The SVGs are specific to this component. Extracting them adds files without reducing total complexity. If content updates become frequent, extract step definitions to a data file.
+
+---
+
+## TD-13: `GraphPanel` prop sprawl (17 props, 7 new)
+
+**Location:** `app/components/panels/GraphPanel.tsx`
+**Nature:** structural
+
+### Carrying Cost: Medium
+`GraphPanel` now takes 17 props. Seven of those were added in this diff for graph editing: `graphLayout`, `onLayoutChange`, `onAddNode`, `onDeleteNode`, `onRenameNode`, `onConnectNodes`, `onDeleteEdges`. All are optional (guarded with `?`), which means the component works in read-only mode when they are absent. However, the prop list is now long enough that it is easy to miss one when wiring things up, and the type definition spans 21 lines. This is a direct consequence of TD-2 (page.tsx as sole orchestrator): props must thread through the page to reach the component.
+
+### Fix Cost
+- **Scope:** localized (could group editing callbacks into a single `editingHandlers` object)
+- **Effort:** hours
+- **Risk:** low
+- **Incremental?** yes
+
+### Urgency Triggers
+- Adding more graph editing operations (e.g., merge nodes, change node kind)
+- Adding a second graph panel (e.g., causal graph editing)
+
+### Recommendation: Fix opportunistically
+Group the 7 editing callbacks into a single `graphEditing?: GraphEditingHandlers` prop. This reduces the prop list to 11 and makes it clear which props are editing-related vs. structural.
+
+---
+
+## TD-14: `useCausalGraphLayout` and `useGraphLayout` near-duplicate incremental layout logic
+
+**Location:** `app/components/features/causal-graph/useCausalGraphLayout.ts`, `app/components/features/proof-graph/useGraphLayout.ts`
+**Nature:** structural duplication
+
+### Carrying Cost: Medium
+Both hooks implement the same incremental-Dagre-layout pattern: `positionsRef` as accumulator, "only run Dagre for new nodes," edge-arrival detection (in causal graph), position pruning (in proof graph). The pattern is documented with identical comments in both files. `useGraphLayout` additionally supports persisted initial positions and exports `updateNodePosition` / `getPositions`. The causal graph hook does not. If the layout strategy changes (e.g., switching from Dagre to ELK, fixing a layout bug), both must be updated.
+
+### Fix Cost
+- **Scope:** medium (would need a shared incremental layout utility parameterized by node/edge shapes)
+- **Effort:** hours to a day
+- **Risk:** low (both are well-tested through usage)
+- **Incremental?** yes (extract shared core, adapt each hook)
+
+### Urgency Triggers
+- Switching layout library (e.g., Dagre to ELK)
+- Adding incremental layout to a third graph type
+- Bug in layout logic that must be fixed in both
+
+### Recommendation: Fix opportunistically
+Next time either hook is touched, extract the shared incremental-Dagre logic into `app/lib/utils/incrementalDagreLayout.ts` parameterized by node dimensions and edge extraction. Each hook becomes a thin wrapper.
+
+---
+
+## TD-15: `streamLlm.ts` duplicates provider chain logic from `callLlm.ts`
+
+**Location:** `app/lib/llm/streamLlm.ts` (321 lines), `app/lib/llm/callLlm.ts`
+**Nature:** structural duplication
+
+### Carrying Cost: Medium
+`streamLlm` reimplements the Anthropic -> OpenRouter -> mock provider fallback chain from `callLlm`, but with streaming variants. The two files share imports (`OPENROUTER_API_URL`, `DEFAULT_ANTHROPIC_MODEL`, `getAnthropicClient`), but the env-var reading, model selection, and error handling are duplicated. This is broader than TD-1 (which is just `recordAndCache`) -- the entire provider-selection and request-construction logic is duplicated.
+
+### Fix Cost
+- **Scope:** medium (would need a provider-selection module and streaming/non-streaming adapters)
+- **Effort:** days
+- **Risk:** medium (touching the LLM infrastructure)
+- **Incremental?** partially (could extract provider selection first, then adapt streaming)
+
+### Urgency Triggers
+- Adding a third provider (e.g., Google, local model)
+- Changing auth or routing logic (must update both files)
+
+### Recommendation: Fix opportunistically
+When adding a new provider or changing routing logic, extract provider selection into a shared module. The streaming and non-streaming code paths would become thin adapters over the provider abstraction.
 
 ---
 
@@ -260,26 +353,37 @@ Remove `saveWorkspace`, `SaveWorkspaceInput`, `ArtifactPersistenceData`, and the
 
 | # | Debt Item | Carrying Cost | Fix Effort | Urgency | Recommendation |
 |---|-----------|---------------|------------|---------|----------------|
-| 1 | Duplicated `recordAndCache` in callLlm/streamLlm | Medium | hours | Low | Fix opportunistically |
-| 2 | `page.tsx` monolithic orchestrator (~860 lines) | High | days | Low | Defer and monitor |
-| 3 | `PersistedWorkspace` bridge layer losing version history | Medium | days | Low | Fix opportunistically |
-| 4 | Unused `useAllArtifactEditing` hook (dead code) | Low | minutes | None | **Fix now** |
-| 5 | Streaming/non-streaming API duality | Medium | days | Low | Carry intentionally |
-| 6 | Incomplete dialectical-map rename (onboarding, prompt) | Low | minutes | Low | **Fix now** |
-| 7 | Dual localStorage keys without cleanup | Medium | hours | Low | Fix opportunistically |
-| 8 | `EditableSection` makes direct API calls | Low | hours | Low | Fix opportunistically |
-| 9 | `useFieldUpdaters` untyped dynamic key access | Low | hours | None | Carry intentionally |
-| 10 | Onboarding overlay with inline SVGs (307 lines) | Low | hours | None | Carry intentionally |
-| 11 | Dead code in `workspacePersistence.ts` | Low | minutes | None | Fix opportunistically |
+| TD-3 | `addGraphEdge` stale closure bug risk | High | hours | Medium | **Fix now** |
+| TD-7 | Incomplete dialectical-map rename | Low | minutes | Low | **Fix now** |
+| TD-9 | Unused `useAllArtifactEditing` (dead code) | Low | minutes | None | **Fix now** |
+| TD-2 | `page.tsx` monolithic orchestrator (~860 lines) | High | days | Low | Defer and monitor |
+| TD-1 | Duplicated `recordAndCache` | Medium | hours | Low | Fix opportunistically |
+| TD-4 | `PersistedWorkspace` bridge layer | Medium | days | Low | Fix opportunistically |
+| TD-8 | Dual localStorage keys without cleanup | Medium | hours | Low | Fix opportunistically |
+| TD-6 | `EditableSection` direct API calls | Low | hours | Low | Fix opportunistically |
+| TD-11 | Dead code in `workspacePersistence.ts` | Low | minutes | None | Fix opportunistically |
+| TD-13 | `GraphPanel` prop sprawl (17 props) | Medium | hours | Low | Fix opportunistically |
+| TD-14 | Duplicated incremental layout logic | Medium | hours-day | Low | Fix opportunistically |
+| TD-15 | `streamLlm` duplicates provider chain | Medium | days | Low | Fix opportunistically |
+| TD-5 | Streaming/non-streaming API duality | Medium | days | Low | Carry intentionally |
+| TD-10 | `useFieldUpdaters` untyped dynamic keys | Low | hours | None | Carry intentionally |
+| TD-12 | Onboarding overlay inline SVGs | Low | hours | None | Carry intentionally |
 
-### Debt resolved by this branch
+### Priority actions
 
-For context, this branch resolves significant pre-existing debt:
+1. **Fix TD-3** (`addGraphEdge` stale closure) -- correctness risk, small fix
+2. **Fix TD-7** (rename remnants) -- minutes, user-facing
+3. **Fix TD-9** (dead code) -- minutes, reduces confusion
 
-1. **Manual debounced localStorage persistence** replaced by Zustand `persist` middleware
-2. **Stale closure risk in pipeline accessors** eliminated by `getState()` pattern
-3. **No artifact edit history** resolved by `ArtifactRecord` versioning
-4. **No streaming/progress feedback** for formalization resolved by SSE streaming infrastructure
-5. **No inline editing for structured artifacts** resolved by `EditableSection` + `useFieldUpdaters`
+### Debt resolved by this diff
+
+For context, this diff resolves or improves the following pre-existing concerns:
+
+1. **No streaming/progress feedback** for formalization resolved by SSE streaming infrastructure (new `streamLlm.ts`, `fetchStreamingApi`, partial-JSON previews)
+2. **No inline editing for structured artifacts** resolved by `EditableSection` + `useFieldUpdaters` + `useArtifactEditing`
+3. **No graph persistence** resolved by `GraphLayout` type, position tracking in `useGraphLayout`/`useCausalGraphLayout`, and persistence through workspace sessions
+4. **No graph editing** resolved by `graphOperations.ts` (pure functions, well-tested) and wiring through `ProofGraph`/`GraphPanel`
+5. **"Dialectical Map" naming** mostly resolved by rename to "Balanced Perspectives"
 6. **No onboarding flow** resolved by `OnboardingOverlay`
-7. **"Dialectical Map" naming** mostly resolved by rename to "Balanced Perspectives"
+7. **Concurrent artifact generation race conditions** resolved by per-type generation counters in `useArtifactGeneration`
+8. **Queue not cancelled on session switch** resolved by `cancelQueue`/`resetQueue` integration in `useWorkspaceSessions`
