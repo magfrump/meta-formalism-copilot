@@ -1,0 +1,39 @@
+{
+  "h1_pluralistic_vs_single": {
+    "pairs": [
+      {
+        "persona": "maya_grad",
+        "single": {
+          "artifacts": [
+            "lean"
+          ],
+          "mean_score": 4.0
+        },
+        "plural": {
+          "artifacts": [
+            "lean",
+            "dialectical-map"
+          ],
+          "mean_score": 3.0,
+          "useful_count": 2
+        }
+      }
+    ],
+    "aggregate_single_mean": 4.0,
+    "aggregate_plural_mean": 3.0,
+    "conclusion": "CONTRADICTS H1: Single formalism scored higher by 1.0 points on average (4.0 vs 3.0)."
+  },
+  "h2_refinement_vs_single_shot": {
+    "pairs": [],
+    "aggregate_single_shot_mean": null,
+    "aggregate_iterative_mean": null,
+    "conclusion": "Insufficient data to draw conclusions about H2."
+  },
+  "h3_tool_vs_unaided": {
+    "triples": [],
+    "aggregate_pure_llm_mean": null,
+    "aggregate_single_shot_mean": null,
+    "aggregate_full_tool_mean": null,
+    "conclusion": "Insufficient data to draw conclusions about H3."
+  }
+}
