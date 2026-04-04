@@ -6,6 +6,7 @@ import type { PropositionNode, SourceDocument, GraphLayout } from "@/app/lib/typ
 import type { ArtifactType } from "@/app/lib/types/session";
 import type { QueueProgress } from "@/app/hooks/useAutoFormalizeQueue";
 import ArtifactChipSelector from "@/app/components/features/artifact-selector/ArtifactChipSelector";
+import { useStreamingMerge } from "@/app/hooks/useStreamingMerge";
 import DownloadButton from "@/app/components/ui/DownloadButton";
 
 // Dynamic import to avoid SSR issues with ReactFlow
@@ -25,6 +26,7 @@ const SOURCE_COLORS = [
 
 type GraphPanelProps = {
   propositions: PropositionNode[];
+  streamingPropositions?: PropositionNode[] | null;
   selectedNodeId: string | null;
   onSelectNode: (id: string) => void;
   hasContent: boolean;
@@ -48,6 +50,7 @@ type GraphPanelProps = {
 
 export default function GraphPanel({
   propositions,
+  streamingPropositions,
   selectedNodeId,
   onSelectNode,
   hasContent,
@@ -68,7 +71,11 @@ export default function GraphPanel({
   onConnectNodes,
   onDeleteEdges,
 }: GraphPanelProps) {
-  const hasNodes = propositions.length > 0;
+  const { displayData: displayPropositions, hasDisplayData: hasNodes } = useStreamingMerge(
+    propositions.length > 0 ? propositions : null,
+    streamingPropositions,
+    (data) => data.length > 0,
+  );
   const [exporting, setExporting] = useState(false);
   const [showArtifactPicker, setShowArtifactPicker] = useState(false);
   const [queueArtifactTypes, setQueueArtifactTypes] = useState<ArtifactType[]>([]);
@@ -294,9 +301,9 @@ export default function GraphPanel({
           </div>
         )}
 
-        {hasNodes && (
+        {hasNodes && displayPropositions && (
           <ProofGraph
-            propositions={propositions}
+            propositions={displayPropositions}
             selectedNodeId={selectedNodeId}
             onSelectNode={onSelectNode}
             sourceColorMap={sourceColorMap}

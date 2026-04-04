@@ -252,6 +252,7 @@ export default function Home() {
     removeGraphEdge,
     updateGraphLayout,
     resetState: resetDecomp,
+    streamingNodes,
   } = useDecomposition();
   const isDecompMode = decomp.nodes.length > 0 && selectedNode !== null;
 
@@ -780,6 +781,7 @@ export default function Home() {
         return (
           <GraphPanel
             propositions={decomp.nodes}
+            streamingPropositions={streamingNodes}
             selectedNodeId={decomp.selectedNodeId}
             onSelectNode={handleSelectNode}
             hasContent={sourceDocuments.length > 0}
@@ -888,6 +890,7 @@ export default function Home() {
     analyticsEntries, analyticsSummary, clearAnalytics,
     waitEstimate,
     addGraphEdge, handleAddNode, handleDeleteEdges, removeGraphNode, renameGraphNode, updateGraphLayout,
+    streamingNodes,
   ]);
 
   return (

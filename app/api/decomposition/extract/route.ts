@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callLlm, OpenRouterError } from "@/app/lib/llm/callLlm";
+import { streamLlm, SSE_HEADERS } from "@/app/lib/llm/streamLlm";
+import { transformSseStream } from "@/app/lib/llm/transformSseStream";
 import { removeCachedResult } from "@/app/lib/llm/cache";
 import { decompositionSchema } from "@/app/lib/llm/schemas";
 import type { SourceDocument } from "@/app/lib/types/decomposition";
@@ -107,8 +109,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "documents array or text is required" }, { status: 400 });
   }
 
+  const wantStream = Boolean(body.stream);
   const userMessage = formatDocuments(documents);
 
+  // Streaming path: stream raw tokens for partial-JSON rendering on the client
+  if (wantStream) {
+    const rawStream = streamLlm({
+      endpoint: "decomposition/extract",
+      systemPrompt: SYSTEM_PROMPT,
+      userContent: userMessage,
+      maxTokens: 16384,
+      openRouterModel: OPENROUTER_MODEL,
+    });
+
+    // Transform the `done` event to substitute mock content when no API key is set.
+    const transformed = rawStream.pipeThrough(transformSseStream((data) => {
+      if (data.usage?.provider === "mock") {
+        data.text = JSON.stringify(mockResponse(documents));
+      }
+    }));
+
+    // Next.js route handlers accept Response; cast avoids a type mismatch with NextResponse
+    return new Response(transformed, { headers: SSE_HEADERS }) as unknown as NextResponse;
+  }
+
+  // Non-streaming path: uses responseFormat for structured JSON output
   try {
     const { text: responseText, usage, cacheKey } = await callLlm({
       endpoint: "decomposition/extract",
