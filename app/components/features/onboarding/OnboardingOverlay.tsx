@@ -233,7 +233,7 @@ function OnboardingOverlayInner({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5 text-[15px] leading-relaxed text-[var(--ink-black)]">
+        <div className="max-h-[50vh] overflow-y-auto px-6 py-5 text-[15px] leading-relaxed text-[var(--ink-black)]">
           {step.content}
         </div>
 
