@@ -90,7 +90,7 @@ export default function BalancedPerspectivesPanel({
 
                     {(p.vulnerabilities?.length ?? 0) > 0 && (
                       <div>
-                        <span className="text-xs font-semibold text-amber-700">Vulnerabilities:</span>
+                        <span className="text-xs font-semibold text-amber-700">Weaknesses:</span>
                         <ul className="list-disc pl-5 mt-1 space-y-0.5">
                           {p.vulnerabilities.map((v, j) => (
                             <li key={j} className="text-xs text-amber-700">{v}</li>
@@ -131,7 +131,7 @@ export default function BalancedPerspectivesPanel({
           {/* Synthesis */}
           {displayMap.synthesis && (
           <section>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B6560] mb-2">Synthesis</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B6560] mb-2">Proposed Resolution</h3>
             <EditableSection value={displayMap.synthesis} onChange={(v) => updateField("synthesis", v)}>
               <div className="rounded border border-green-200 bg-green-50 px-3 py-2 space-y-2">
                 <p className="text-sm text-green-900">{displayMap.synthesis.equilibrium}</p>
