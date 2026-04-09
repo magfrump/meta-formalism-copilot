@@ -2,6 +2,7 @@
 
 import type { CounterexamplesResponse } from "@/app/lib/types/artifacts";
 import ArtifactPanelShell from "./ArtifactPanelShell";
+import FindEvidenceButton from "@/app/components/features/evidence-search/FindEvidenceButton";
 
 const PLAUSIBILITY_STYLES: Record<string, string> = {
   high: "bg-red-100 text-red-700",
@@ -58,6 +59,11 @@ export default function CounterexamplesPanel({ counterexamples, loading }: Count
                   <div className="text-xs text-[#6B6560]">
                     <span className="font-semibold">Why it works:</span> {cx.explanation}
                   </div>
+                  <FindEvidenceButton
+                    artifactType="counterexamples"
+                    elementId={cx.id}
+                    elementContent={`${cx.scenario} Targets assumption: ${cx.targetAssumption} ${cx.explanation}`}
+                  />
                 </div>
               ))}
             </div>
