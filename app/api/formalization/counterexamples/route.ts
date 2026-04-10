@@ -12,7 +12,8 @@ Return a JSON object with this exact shape:
       "scenario": "string (concrete description of the counterexample)",
       "targetAssumption": "string (which assumption or condition this challenges)",
       "explanation": "string (why this counterexample is effective — what breaks)",
-      "plausibility": "high | medium | low"
+      "plausibility": "high | medium | low",
+      "isEmpirical": "boolean (true if this counterexample relies on empirical data, statistics, or studies)"
     }
   ],
   "robustnessAssessment": "string (overall assessment of how robust the claim is given these counterexamples)",
@@ -25,7 +26,13 @@ Important:
 - Include a mix of plausibility levels — some obvious, some subtle
 - Target different assumptions where possible
 - The robustness assessment should be balanced and constructive
-- Return ONLY the JSON object, no commentary or markdown fences`;
+- Return ONLY the JSON object, no commentary or markdown fences
+
+Critical rule for empirical counterexamples:
+- Set isEmpirical to true when a counterexample involves empirical claims (data, statistics, studies, experimental results)
+- For empirical counterexamples, frame the scenario as HYPOTHETICAL: describe what kind of evidence *would* contradict the thesis, not that such evidence exists. Use language like "If data showed X, it would contradict Y" or "Evidence of X would undermine Y"
+- NEVER fabricate specific citations, study names, author names, statistics, or data points
+- Focus on describing the *type* of evidence that would be contradicting, not claiming it exists`;
 
 function mockResponse(sourceText: string) {
   const snippet = sourceText.slice(0, 60).replace(/\n/g, " ");
@@ -38,6 +45,7 @@ function mockResponse(sourceText: string) {
         targetAssumption: "Implicit assumption that the domain is unbounded",
         explanation: "The claim implicitly assumes no boundary effects, but in finite domains this breaks down.",
         plausibility: "medium" as const,
+        isEmpirical: false,
       },
     ],
     robustnessAssessment: "Mock assessment: the claim appears moderately robust but has at least one exploitable assumption.",

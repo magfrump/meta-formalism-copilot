@@ -50,14 +50,24 @@ export default function CounterexamplesPanel({ counterexamples, loading }: Count
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PLAUSIBILITY_STYLES[cx.plausibility] ?? ""}`}>
                       {cx.plausibility}
                     </span>
+                    {cx.isEmpirical && (
+                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                        Hypothetical
+                      </span>
+                    )}
                   </div>
-                  <p className="text-sm text-[var(--ink-black)]">{cx.scenario}</p>
+                  <p className={`text-sm text-[var(--ink-black)] ${cx.isEmpirical ? "italic" : ""}`}>{cx.scenario}</p>
                   <div className="text-xs text-[#6B6560]">
                     <span className="font-semibold">Targets:</span> {cx.targetAssumption}
                   </div>
                   <div className="text-xs text-[#6B6560]">
                     <span className="font-semibold">Why it works:</span> {cx.explanation}
                   </div>
+                  {cx.isEmpirical && (
+                    <div className="mt-1 rounded bg-blue-50 px-3 py-1.5 text-xs text-blue-700">
+                      This is a hypothetical empirical counterexample. Use <span className="font-semibold">Find Evidence</span> to search for real papers and data that support or refute it.
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
