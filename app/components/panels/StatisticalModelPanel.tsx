@@ -7,6 +7,7 @@ import ArtifactPanelShell, { type ArtifactEditingProps } from "./ArtifactPanelSh
 import EditableSection from "@/app/components/features/output-editing/EditableSection";
 import { useFieldUpdaters } from "@/app/hooks/useFieldUpdaters";
 import FindEvidenceButton from "@/app/components/features/evidence-search/FindEvidenceButton";
+import { WHOLE_ARTIFACT_ELEMENT_ID } from "@/app/lib/types/evidence";
 
 type StatisticalModelPanelProps = {
   statisticalModel: StatisticalModelResponse["statisticalModel"] | null;
@@ -163,7 +164,7 @@ export default function StatisticalModelPanel({
               </h3>
               <FindEvidenceButton
                 artifactType="statistical-model"
-                elementId="artifact"
+                elementId={WHOLE_ARTIFACT_ELEMENT_ID}
                 elementContent={evidenceSearchContent}
               />
             </section>
