@@ -11,7 +11,7 @@ describe('TextInput', () => {
 
   it('shows placeholder text', () => {
     render(<TextInput value="" onChange={() => {}} />)
-    expect(screen.getByPlaceholderText('Paste or type your source material here...')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Type or paste text you want to formalize...')).toBeInTheDocument()
   })
 
   it('calls onChange when user types', async () => {
