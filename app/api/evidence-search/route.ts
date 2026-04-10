@@ -3,13 +3,14 @@ import { callLlm, OpenRouterError } from "@/app/lib/llm/callLlm";
 import { CLAUDE_SONNET } from "@/app/lib/llm/models";
 import { stripCodeFences } from "@/app/lib/utils/stripCodeFences";
 import { mapOpenAlexWork, deduplicatePapers, type OpenAlexWork } from "./openAlexUtils";
-import type { EvidenceSearchRequest, EvidenceSearchResponse } from "@/app/lib/types/evidence";
+import { EVIDENCE_ARTIFACT_TYPES, type EvidenceSearchRequest, type EvidenceSearchResponse } from "@/app/lib/types/evidence";
 
 const OPENALEX_API_URL = "https://api.openalex.org/works";
 const OPENALEX_TIMEOUT_MS = 10_000;
-const OPENALEX_MAILTO = "metaformalism-copilot@example.com";
+const OPENALEX_MAILTO = process.env.OPENALEX_MAILTO ?? "metaformalism-copilot@example.com";
 const MAX_RESULTS = 8;
 const PER_QUERY_RESULTS = 5;
+const MAX_ELEMENT_CONTENT_LENGTH = 5000;
 
 // ---------------------------------------------------------------------------
 // LLM query generation
@@ -77,11 +78,15 @@ async function generateSearchQueries(
 
   if (!text) return [elementContent.slice(0, 100)]; // fallback: use element content as query
 
-  const parsed = JSON.parse(stripCodeFences(text));
-  if (!Array.isArray(parsed.queries) || parsed.queries.length === 0) {
+  try {
+    const parsed = JSON.parse(stripCodeFences(text));
+    if (!Array.isArray(parsed.queries) || parsed.queries.length === 0) {
+      return [elementContent.slice(0, 100)];
+    }
+    return parsed.queries.slice(0, 3);
+  } catch {
     return [elementContent.slice(0, 100)];
   }
-  return parsed.queries.slice(0, 3);
 }
 
 // ---------------------------------------------------------------------------
@@ -136,9 +141,15 @@ export async function POST(request: NextRequest) {
     if (!body.artifactType || !body.elementId) {
       return NextResponse.json({ error: "artifactType and elementId are required" }, { status: 400 });
     }
+    if (!EVIDENCE_ARTIFACT_TYPES.includes(body.artifactType as (typeof EVIDENCE_ARTIFACT_TYPES)[number])) {
+      return NextResponse.json({ error: `artifactType must be one of: ${EVIDENCE_ARTIFACT_TYPES.join(", ")}` }, { status: 400 });
+    }
+
+    // Cap element content length to avoid runaway LLM token usage
+    const elementContent = body.elementContent.slice(0, MAX_ELEMENT_CONTENT_LENGTH);
 
     // Step 1: Generate search queries via LLM
-    const queries = await generateSearchQueries(body.elementContent, body.contextSummary);
+    const queries = await generateSearchQueries(elementContent, body.contextSummary);
 
     // Step 2: Search OpenAlex for all queries in parallel
     const queryResults = await Promise.allSettled(queries.map(searchOpenAlex));

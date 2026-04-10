@@ -40,7 +40,11 @@ function createDebouncedStorage() {
   };
 }
 
-// Hoist so the persist middleware always uses the same adapter instance
+// Hoist so the persist middleware always uses the same adapter instance.
+// Safe at module scope because the adapter's methods are only invoked via the
+// persist middleware's `storage` config, which is guarded by
+// `typeof window !== "undefined"` in the persist config below. During SSR,
+// `storage` is `undefined` so the adapter is never called.
 const debouncedStorage = createDebouncedStorage();
 
 // ---------------------------------------------------------------------------
