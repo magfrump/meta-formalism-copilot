@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 
 type CollapsibleSectionProps = {
   /** Header text displayed in the clickable toggle bar */
@@ -27,14 +27,16 @@ export default function CollapsibleSection({
   headerClassName,
 }: CollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const contentId = useId();
 
   return (
     <section>
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex w-full items-center gap-1.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink-black)] focus-visible:ring-offset-1 rounded"
+        className="mb-1 flex w-full items-center gap-1.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink-black)] focus-visible:ring-offset-1 rounded"
         aria-expanded={isOpen}
+        aria-controls={contentId}
       >
         {/* Chevron rotates 90deg when open */}
         <svg
@@ -50,14 +52,16 @@ export default function CollapsibleSection({
         >
           <path d="M4 2 L8 6 L4 10" />
         </svg>
-        <h3
+        <span
+          role="heading"
+          aria-level={3}
           className={
             headerClassName ??
             "text-xs font-semibold uppercase tracking-wide text-[#6B6560]"
           }
         >
           {title}
-        </h3>
+        </span>
       </button>
 
       {/*
@@ -66,6 +70,7 @@ export default function CollapsibleSection({
         via overflow-hidden on the wrapper.
       */}
       <div
+        id={contentId}
         className="grid transition-[grid-template-rows] duration-200 ease-in-out"
         style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
       >
