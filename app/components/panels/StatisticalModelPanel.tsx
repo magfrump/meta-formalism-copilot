@@ -2,6 +2,7 @@
 
 import type { StatisticalModelResponse } from "@/app/lib/types/artifacts";
 import ArtifactPanelShell from "./ArtifactPanelShell";
+import CollapsibleSection from "@/app/components/ui/CollapsibleSection";
 
 type StatisticalModelPanelProps = {
   statisticalModel: StatisticalModelResponse["statisticalModel"] | null;
@@ -42,10 +43,7 @@ export default function StatisticalModelPanel({ statisticalModel, loading }: Sta
           </section>
 
           {/* Variables */}
-          <section>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B6560] mb-2">
-              Variables ({statisticalModel.variables.length})
-            </h3>
+          <CollapsibleSection title={`Variables (${statisticalModel.variables.length})`} defaultOpen>
             <div className="space-y-2">
               {statisticalModel.variables.map((v) => (
                 <div key={v.id} className="rounded border border-[#DDD9D5] bg-white px-3 py-2">
@@ -60,13 +58,10 @@ export default function StatisticalModelPanel({ statisticalModel, loading }: Sta
                 </div>
               ))}
             </div>
-          </section>
+          </CollapsibleSection>
 
           {/* Hypotheses */}
-          <section>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B6560] mb-2">
-              Hypotheses ({statisticalModel.hypotheses.length})
-            </h3>
+          <CollapsibleSection title={`Hypotheses (${statisticalModel.hypotheses.length})`} defaultOpen>
             <div className="space-y-2">
               {statisticalModel.hypotheses.map((h) => (
                 <div key={h.id} className="rounded border border-[#DDD9D5] bg-white px-3 py-2">
@@ -80,7 +75,7 @@ export default function StatisticalModelPanel({ statisticalModel, loading }: Sta
                 </div>
               ))}
             </div>
-          </section>
+          </CollapsibleSection>
 
           {/* Assumptions */}
           {statisticalModel.assumptions.length > 0 && (
