@@ -6,8 +6,9 @@
 
 import type { ArtifactType } from "./session";
 
-/** Artifact types that support evidence search */
-export type EvidenceArtifactType = Extract<ArtifactType, "statistical-model" | "counterexamples">;
+/** Artifact types that support evidence search (runtime array, single source of truth) */
+export const EVIDENCE_ARTIFACT_TYPES = ["statistical-model", "counterexamples"] as const;
+export type EvidenceArtifactType = Extract<ArtifactType, (typeof EVIDENCE_ARTIFACT_TYPES)[number]>;
 
 /** Identifies which artifact element an evidence slot is attached to */
 export type EvidenceTargetKey = {
