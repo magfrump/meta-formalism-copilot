@@ -7,13 +7,13 @@ import { EVIDENCE_ARTIFACT_TYPES, type EvidenceSearchRequest, type EvidenceSearc
 
 const OPENALEX_API_URL = "https://api.openalex.org/works";
 const OPENALEX_TIMEOUT_MS = 10_000;
-const OPENALEX_MAILTO = process.env.OPENALEX_MAILTO;
-if (!OPENALEX_MAILTO) {
+if (!process.env.OPENALEX_MAILTO) {
   throw new Error(
     "OPENALEX_MAILTO env var is required — OpenAlex's polite pool needs a real contact email. " +
     "See https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication",
   );
 }
+const OPENALEX_MAILTO: string = process.env.OPENALEX_MAILTO;
 const MAX_RESULTS = 8;
 const PER_QUERY_RESULTS = 5;
 const MAX_ELEMENT_CONTENT_LENGTH = 5000;
