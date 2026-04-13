@@ -32,6 +32,7 @@ import { useFormalizationSessions } from "@/app/hooks/useFormalizationSessions";
 import { useWaitTimeEstimate } from "@/app/hooks/useWaitTimeEstimate";
 import { useFormalizationPipeline } from "@/app/hooks/useFormalizationPipeline";
 import { useActiveArtifactState } from "@/app/hooks/useActiveArtifactState";
+import { useActiveStructuredArtifacts } from "@/app/hooks/useActiveStructuredArtifacts";
 import { usePanelDefinitions } from "@/app/hooks/usePanelDefinitions";
 import { useArtifactGeneration } from "@/app/hooks/useArtifactGeneration";
 import { useAnalytics } from "@/app/hooks/useAnalytics";
@@ -567,6 +568,14 @@ export default function Home() {
     nodePipeline.loadingPhase,
   );
 
+  const {
+    activeCausalGraph, activeStatisticalModel, activePropertyTests,
+    activeBalancedPerspectives, activeCounterexamples,
+  } = useActiveStructuredArtifacts(
+    causalGraph, statisticalModel, propertyTests, balancedPerspectives, counterexamples,
+    selectedNode, isDecompMode,
+  );
+
   // Determine if any RPC is in flight (for workspace session-switch guard)
   const isAnyRpcBusy = loadingPhase !== "idle" || isAnyGenerating || queueRunning;
 
@@ -728,15 +737,15 @@ export default function Home() {
     activeSemiformal, activeLeanCode, loadingPhase,
     activeVerificationStatus, semiformalReadyForLean,
     nodes: decomp.nodes, selectedNode,
-    hasCausalGraph: causalGraph !== null,
+    hasCausalGraph: activeCausalGraph !== null,
     causalGraphLoading,
-    hasStatisticalModel: statisticalModel !== null,
+    hasStatisticalModel: activeStatisticalModel !== null,
     statisticalModelLoading,
-    hasPropertyTests: propertyTests !== null,
+    hasPropertyTests: activePropertyTests !== null,
     propertyTestsLoading,
-    hasBalancedPerspectives: balancedPerspectives !== null,
+    hasBalancedPerspectives: activeBalancedPerspectives !== null,
     balancedPerspectivesLoading,
-    hasCounterexamples: counterexamples !== null,
+    hasCounterexamples: activeCounterexamples !== null,
     counterexamplesLoading,
     customArtifactTypes,
     customArtifactData,
@@ -884,7 +893,7 @@ export default function Home() {
       case "causal-graph":
         return (
           <CausalGraphPanel
-            causalGraph={causalGraph}
+            causalGraph={activeCausalGraph}
             loading={causalGraphLoading}
             waitEstimate={causalGraphWaitEstimate}
             onContentChange={handleCausalGraphContentChange}
@@ -895,7 +904,7 @@ export default function Home() {
       case "statistical-model":
         return (
           <StatisticalModelPanel
-            statisticalModel={statisticalModel}
+            statisticalModel={activeStatisticalModel}
             loading={statisticalModelLoading}
             onContentChange={handleStatisticalModelContentChange}
             isStale={statisticalModelIsStale}
@@ -905,7 +914,7 @@ export default function Home() {
       case "property-tests":
         return (
           <PropertyTestsPanel
-            propertyTests={propertyTests}
+            propertyTests={activePropertyTests}
             loading={propertyTestsLoading}
             onContentChange={handlePropertyTestsContentChange}
             isStale={propertyTestsIsStale}
@@ -915,7 +924,7 @@ export default function Home() {
       case "balanced-perspectives":
         return (
           <BalancedPerspectivesPanel
-            balancedPerspectives={balancedPerspectives}
+            balancedPerspectives={activeBalancedPerspectives}
             loading={balancedPerspectivesLoading}
             onContentChange={handleBalancedPerspectivesContentChange}
             isStale={balancedPerspectivesIsStale}
@@ -925,7 +934,7 @@ export default function Home() {
       case "counterexamples":
         return (
           <CounterexamplesPanel
-            counterexamples={counterexamples}
+            counterexamples={activeCounterexamples}
             loading={counterexamplesLoading}
             onContentChange={handleCounterexamplesContentChange}
             isStale={counterexamplesIsStale}
@@ -959,11 +968,11 @@ export default function Home() {
     handleSelectNode, handleDecompose, handleNodeGenerate, handleNodeGenerateLean, updateNode,
     selectedArtifactTypes, artifactLoadingState,
     activeSession, allSessionsSorted, selectAndRestore,
-    causalGraph, causalGraphLoading, causalGraphWaitEstimate, handleCausalGraphContentChange,
-    statisticalModel, statisticalModelLoading, handleStatisticalModelContentChange,
-    propertyTests, propertyTestsLoading, handlePropertyTestsContentChange,
-    balancedPerspectives, balancedPerspectivesLoading, handleBalancedPerspectivesContentChange,
-    counterexamples, counterexamplesLoading, handleCounterexamplesContentChange,
+    activeCausalGraph, causalGraphLoading, causalGraphWaitEstimate, handleCausalGraphContentChange,
+    activeStatisticalModel, statisticalModelLoading, handleStatisticalModelContentChange,
+    activePropertyTests, propertyTestsLoading, handlePropertyTestsContentChange,
+    activeBalancedPerspectives, balancedPerspectivesLoading, handleBalancedPerspectivesContentChange,
+    activeCounterexamples, counterexamplesLoading, handleCounterexamplesContentChange,
     semiformalIsStale, causalGraphIsStale, statisticalModelIsStale,
     propertyTestsIsStale, balancedPerspectivesIsStale, counterexamplesIsStale,
     analyticsEntries, analyticsSummary, clearAnalytics,
