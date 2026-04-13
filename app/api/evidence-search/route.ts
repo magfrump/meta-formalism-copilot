@@ -7,13 +7,16 @@ import { EVIDENCE_ARTIFACT_TYPES, type EvidenceSearchRequest, type EvidenceSearc
 
 const OPENALEX_API_URL = "https://api.openalex.org/works";
 const OPENALEX_TIMEOUT_MS = 10_000;
-if (!process.env.OPENALEX_MAILTO) {
-  throw new Error(
-    "OPENALEX_MAILTO env var is required — OpenAlex's polite pool needs a real contact email. " +
-    "See https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication",
-  );
+function getOpenAlexMailto(): string {
+  const mailto = process.env.OPENALEX_MAILTO;
+  if (!mailto) {
+    throw new Error(
+      "OPENALEX_MAILTO env var is required — OpenAlex's polite pool needs a real contact email. " +
+      "See https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication",
+    );
+  }
+  return mailto;
 }
-const OPENALEX_MAILTO: string = process.env.OPENALEX_MAILTO;
 const MAX_RESULTS = 8;
 const PER_QUERY_RESULTS = 5;
 const MAX_ELEMENT_CONTENT_LENGTH = 5000;
@@ -110,7 +113,7 @@ async function searchOpenAlex(query: string): Promise<OpenAlexWork[]> {
     const url = new URL(OPENALEX_API_URL);
     url.searchParams.set("filter", `title_and_abstract.search:${query}`);
     url.searchParams.set("per_page", String(PER_QUERY_RESULTS));
-    url.searchParams.set("mailto", OPENALEX_MAILTO);
+    url.searchParams.set("mailto", getOpenAlexMailto());
 
     const res = await fetch(url.toString(), { signal: controller.signal });
     clearTimeout(timeout);
