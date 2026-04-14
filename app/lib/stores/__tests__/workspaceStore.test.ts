@@ -137,12 +137,12 @@ describe("workspaceStore", () => {
 
     it("works with dialectical-map artifact key", () => {
       const store = useWorkspaceStore.getState();
-      store.setArtifactGenerated("dialectical-map", '{"positions":[]}');
-      expect(store.getArtifactContent("dialectical-map")).toBe('{"positions":[]}');
+      store.setArtifactGenerated("balanced-perspectives", '{"positions":[]}');
+      expect(store.getArtifactContent("balanced-perspectives")).toBe('{"positions":[]}');
 
-      store.setArtifactEdited("dialectical-map", '{"positions":["a"]}', "manual-edit");
-      expect(store.getArtifactContent("dialectical-map")).toBe('{"positions":["a"]}');
-      expect(store.canUndo("dialectical-map")).toBe(true);
+      store.setArtifactEdited("balanced-perspectives", '{"positions":["a"]}', "manual-edit");
+      expect(store.getArtifactContent("balanced-perspectives")).toBe('{"positions":["a"]}');
+      expect(store.canUndo("balanced-perspectives")).toBe(true);
     });
   });
 
@@ -248,7 +248,7 @@ describe("workspaceStore", () => {
       const store = useWorkspaceStore.getState();
       expect(store.getArtifactContent("causal-graph")).toBeNull();
       expect(store.getArtifactContent("statistical-model")).toBeNull();
-      expect(store.getArtifactContent("dialectical-map")).toBeNull();
+      expect(store.getArtifactContent("balanced-perspectives")).toBeNull();
     });
 
     it("can simulate the old setter pattern via setArtifactGenerated", () => {

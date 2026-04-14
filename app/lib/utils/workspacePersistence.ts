@@ -1,5 +1,6 @@
 import type { PropositionNode, NodeVerificationStatus } from "@/app/lib/types/decomposition";
 import type { VerificationStatus } from "@/app/lib/types/session";
+import type { CustomArtifactTypeDefinition } from "@/app/lib/types/customArtifact";
 import type { PersistedWorkspace, PersistedDecomposition } from "@/app/lib/types/persistence";
 import { WORKSPACE_VERSION, WORKSPACE_KEY } from "@/app/lib/types/persistence";
 
@@ -59,8 +60,10 @@ export type ArtifactPersistenceData = {
   causalGraph: string | null;
   statisticalModel: string | null;
   propertyTests: string | null;
-  balancedPerspectives: string | null;
+  balancedPerspectives?: string | null;
+  dialecticalMap?: string | null;
   counterexamples: string | null;
+  customArtifactData?: Record<string, string | null>;
 };
 
 export type SaveWorkspaceInput = {
@@ -74,10 +77,12 @@ export type SaveWorkspaceInput = {
   verificationErrors: string;
   decomposition: PersistedDecomposition;
   artifacts?: ArtifactPersistenceData;
+  customArtifactTypes?: CustomArtifactTypeDefinition[];
+  customArtifactData?: Record<string, string | null>;
 };
 
 export function saveWorkspace(input: SaveWorkspaceInput): boolean {
-  const artifacts = input.artifacts ?? { causalGraph: null, statisticalModel: null, propertyTests: null, balancedPerspectives: null, counterexamples: null };
+  const artifacts = input.artifacts ?? { causalGraph: null, statisticalModel: null, propertyTests: null, balancedPerspectives: null, counterexamples: null, customArtifactData: {} };
   const data: PersistedWorkspace = {
     version: WORKSPACE_VERSION,
     sourceText: input.sourceText,
@@ -97,6 +102,8 @@ export function saveWorkspace(input: SaveWorkspaceInput): boolean {
     propertyTests: artifacts.propertyTests,
     balancedPerspectives: artifacts.balancedPerspectives,
     counterexamples: artifacts.counterexamples,
+    customArtifactTypes: input.customArtifactTypes ?? [],
+    customArtifactData: input.customArtifactData ?? artifacts.customArtifactData ?? {},
   };
 
   try {
@@ -109,6 +116,18 @@ export function saveWorkspace(input: SaveWorkspaceInput): boolean {
 
 export function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** Validate that a deserialized object is a well-formed CustomArtifactTypeDefinition. */
+export function isValidCustomTypeDef(v: unknown): v is CustomArtifactTypeDefinition {
+  if (!isObject(v)) return false;
+  return (
+    typeof v.id === "string" && v.id.startsWith("custom-") &&
+    typeof v.name === "string" && v.name.length > 0 &&
+    typeof v.chipLabel === "string" && v.chipLabel.length > 0 &&
+    typeof v.systemPrompt === "string" && v.systemPrompt.length > 0 &&
+    (v.outputFormat === "json" || v.outputFormat === "text")
+  );
 }
 
 export function coerceDecomposition(raw: unknown): PersistedDecomposition {
@@ -214,6 +233,16 @@ export function loadWorkspace(): PersistedWorkspace | null {
       propertyTests: typeof parsed.propertyTests === "string" ? parsed.propertyTests : null,
       balancedPerspectives: typeof parsed.balancedPerspectives === "string" ? parsed.balancedPerspectives : (typeof parsed.dialecticalMap === "string" ? parsed.dialecticalMap : null),
       counterexamples: typeof parsed.counterexamples === "string" ? parsed.counterexamples : null,
+      customArtifactTypes: Array.isArray(parsed.customArtifactTypes)
+        ? (parsed.customArtifactTypes as unknown[]).filter(isValidCustomTypeDef)
+        : [],
+      customArtifactData: isObject(parsed.customArtifactData)
+        ? Object.fromEntries(
+            Object.entries(parsed.customArtifactData as Record<string, unknown>)
+              .filter(([, v]) => typeof v === "string" || v === null)
+              .map(([k, v]) => [k, v as string | null]),
+          )
+        : {},
     };
   } catch {
     return null;

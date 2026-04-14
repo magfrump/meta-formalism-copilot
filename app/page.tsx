@@ -15,7 +15,7 @@ import LeanPanel from "@/app/components/panels/LeanPanel";
 import CausalGraphPanel from "@/app/components/panels/CausalGraphPanel";
 import StatisticalModelPanel from "@/app/components/panels/StatisticalModelPanel";
 import PropertyTestsPanel from "@/app/components/panels/PropertyTestsPanel";
-import DialecticalMapPanel from "@/app/components/panels/DialecticalMapPanel";
+import BalancedPerspectivesPanel from "@/app/components/panels/BalancedPerspectivesPanel";
 import CounterexamplesPanel from "@/app/components/panels/CounterexamplesPanel";
 import GraphPanel from "@/app/components/panels/GraphPanel";
 import NodeDetailPanel from "@/app/components/panels/NodeDetailPanel";
@@ -51,7 +51,7 @@ function artifactSelector(key: ArtifactKey): (s: StoreState) => string | null {
 const selectCausalGraph = artifactSelector("causal-graph");
 const selectStatisticalModel = artifactSelector("statistical-model");
 const selectPropertyTests = artifactSelector("property-tests");
-const selectDialecticalMap = artifactSelector("dialectical-map");
+const selectDialecticalMap = artifactSelector("balanced-perspectives");
 const selectCounterexamples = artifactSelector("counterexamples");
 
 function phaseToEndpoint(phase: LoadingPhase): string | null {
@@ -127,7 +127,7 @@ export default function Home() {
       causalGraph: s.getArtifactContent("causal-graph"),
       statisticalModel: s.getArtifactContent("statistical-model"),
       propertyTests: s.getArtifactContent("property-tests"),
-      dialecticalMap: s.getArtifactContent("dialectical-map"),
+      balancedPerspectives: s.getArtifactContent("balanced-perspectives"),
       counterexamples: s.getArtifactContent("counterexamples"),
     };
   }, []);
@@ -218,7 +218,7 @@ export default function Home() {
     if (v) useWorkspaceStore.getState().setArtifactGenerated("property-tests", v);
   }, []);
   const setPersistedDialecticalMap = useCallback((v: string | null) => {
-    if (v) useWorkspaceStore.getState().setArtifactGenerated("dialectical-map", v);
+    if (v) useWorkspaceStore.getState().setArtifactGenerated("balanced-perspectives", v);
   }, []);
   const setPersistedCounterexamples = useCallback((v: string | null) => {
     if (v) useWorkspaceStore.getState().setArtifactGenerated("counterexamples", v);
@@ -333,7 +333,7 @@ export default function Home() {
         case "causal-graph":
         case "statistical-model":
         case "property-tests":
-        case "dialectical-map":
+        case "balanced-perspectives":
         case "counterexamples":
           useWorkspaceStore.getState().setArtifactGenerated(artifact.type, artifact.content);
           break;
@@ -693,8 +693,8 @@ export default function Home() {
     statisticalModelLoading,
     hasPropertyTests: activePropertyTests !== null,
     propertyTestsLoading,
-    hasDialecticalMap: activeDialecticalMap !== null,
-    dialecticalMapLoading,
+    hasBalancedPerspectives: activeDialecticalMap !== null,
+    balancedPerspectivesLoading: dialecticalMapLoading,
     hasCounterexamples: activeCounterexamples !== null,
     counterexamplesLoading,
   });
@@ -715,7 +715,7 @@ export default function Home() {
       causalGraph,
       statisticalModel,
       propertyTests,
-      dialecticalMap,
+      balancedPerspectives: dialecticalMap,
       counterexamples,
     });
   }, [semiformalText, leanCode, decomp.nodes, causalGraph, statisticalModel, propertyTests, dialecticalMap, counterexamples]);
@@ -854,9 +854,9 @@ export default function Home() {
         );
       case "balanced-perspectives":
         return (
-          <DialecticalMapPanel
-            dialecticalMap={activeDialecticalMap}
-            streamingPreview={streamingJsonPreview["dialectical-map"] as DialecticalMapResponse["dialecticalMap"] | undefined}
+          <BalancedPerspectivesPanel
+            balancedPerspectives={activeDialecticalMap}
+            streamingPreview={streamingJsonPreview["balanced-perspectives"] as DialecticalMapResponse["dialecticalMap"] | undefined}
             loading={dialecticalMapLoading}
 
             onContentChange={setPersistedDialecticalMap}

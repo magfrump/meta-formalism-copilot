@@ -86,6 +86,10 @@ export type PropertyTestsResponse = {
 };
 
 /** Dialectical Map response shape (003 §3) */
+export type BalancedPerspectivesResponse = {
+  balancedPerspectives: DialecticalMapResponse["dialecticalMap"];
+};
+
 export type DialecticalMapResponse = {
   dialecticalMap: {
     topic: string;

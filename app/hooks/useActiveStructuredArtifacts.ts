@@ -51,7 +51,7 @@ export function useActiveStructuredArtifacts(
       activeCausalGraph: findNodeArtifact(selectedNode, "causal-graph"),
       activeStatisticalModel: findNodeArtifact(selectedNode, "statistical-model"),
       activePropertyTests: findNodeArtifact(selectedNode, "property-tests"),
-      activeDialecticalMap: findNodeArtifact(selectedNode, "dialectical-map"),
+      activeDialecticalMap: findNodeArtifact(selectedNode, "balanced-perspectives"),
       activeCounterexamples: findNodeArtifact(selectedNode, "counterexamples"),
     };
   }, [isDecompMode, selectedNode, causalGraph, statisticalModel, propertyTests, dialecticalMap, counterexamples]);
