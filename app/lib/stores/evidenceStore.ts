@@ -93,8 +93,8 @@ export const useEvidenceStore = create<EvidenceState & EvidenceActions>()(
           loading: { ...state.loading, [key]: loading },
         })),
 
-      setError: (key, error) =>
-        set((state) => {
+      setError: (key: string, error: string | null) =>
+        set((state: EvidenceState) => {
           if (error === null) {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [key]: _removed, ...rest } = state.errors;
@@ -103,8 +103,8 @@ export const useEvidenceStore = create<EvidenceState & EvidenceActions>()(
           return { errors: { ...state.errors, [key]: error } };
         }),
 
-      clearEvidence: (key) =>
-        set((state) => {
+      clearEvidence: (key: string) =>
+        set((state: EvidenceState) => {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { [key]: _removed, ...rest } = state.slots;
           return { slots: rest };
@@ -118,7 +118,7 @@ export const useEvidenceStore = create<EvidenceState & EvidenceActions>()(
         ? createJSONStorage(() => debouncedStorage)
         : undefined,
       // Only persist slots, not transient loading state
-      partialize: (state) => ({ slots: state.slots }),
+      partialize: (state: EvidenceState & EvidenceActions) => ({ slots: state.slots }),
       skipHydration: true,
     },
   ),
