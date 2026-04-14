@@ -3,6 +3,7 @@
 import type { CounterexamplesResponse } from "@/app/lib/types/artifacts";
 import ArtifactPanelShell, { type ArtifactEditingProps, type StalenessProps } from "./ArtifactPanelShell";
 import EditableSection from "@/app/components/features/output-editing/EditableSection";
+import CollapsibleSection from "@/app/components/ui/CollapsibleSection";
 import { useFieldUpdaters } from "@/app/hooks/useFieldUpdaters";
 
 const PLAUSIBILITY_STYLES: Record<string, string> = {
@@ -56,10 +57,7 @@ export default function CounterexamplesPanel({
           </section>
 
           {/* Counterexamples */}
-          <section>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B6560] mb-2">
-              Counterexamples ({counterexamples.counterexamples.length})
-            </h3>
+          <CollapsibleSection title="Counterexamples" defaultOpen={false} count={counterexamples.counterexamples.length}>
             <div className="space-y-3">
               {counterexamples.counterexamples.map((cx, i) => (
                 <EditableSection key={cx.id} value={cx} onChange={(newCx) => updateArrayItem("counterexamples", i, newCx)}>
@@ -81,7 +79,7 @@ export default function CounterexamplesPanel({
                 </EditableSection>
               ))}
             </div>
-          </section>
+          </CollapsibleSection>
 
           {/* Robustness Assessment */}
           <section>

@@ -5,6 +5,7 @@ import type { ArtifactType } from "@/app/lib/types/session";
 import type { ArtifactLoadingState } from "@/app/hooks/useArtifactGeneration";
 import { ARTIFACT_META } from "@/app/lib/types/artifacts";
 import FormalizationControls from "@/app/components/features/formalization-controls/FormalizationControls";
+import CollapsibleSection from "@/app/components/ui/CollapsibleSection";
 
 type NodeDetailPanelProps = {
   node: PropositionNode;
@@ -122,22 +123,16 @@ export default function NodeDetailPanel({
 
             {/* Proof text */}
             {node.proofText && (
-              <section>
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#6B6560]">
-                  Proof
-                </h3>
+              <CollapsibleSection title="Proof" defaultOpen={false}>
                 <div className="rounded-md border border-[#DDD9D5] bg-white px-4 py-3 text-sm leading-relaxed text-[var(--ink-black)]">
                   {node.proofText}
                 </div>
-              </section>
+              </CollapsibleSection>
             )}
 
             {/* Dependencies */}
             {dependencies.length > 0 && (
-              <section>
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#6B6560]">
-                  Depends On
-                </h3>
+              <CollapsibleSection title="Depends On" count={dependencies.length} defaultOpen={false}>
                 <div className="flex flex-col gap-1">
                   {dependencies.map((dep) => {
                     const depStatus = STATUS_LABELS[dep.verificationStatus];
@@ -153,43 +148,25 @@ export default function NodeDetailPanel({
                     );
                   })}
                 </div>
-              </section>
+              </CollapsibleSection>
             )}
 
             {/* Semiformal proof (if generated) */}
             {node.semiformalProof && (
-              <section>
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#6B6560]">
-                  Step-by-Step Proof
-                </h3>
+              <CollapsibleSection title="Step-by-Step Proof">
                 <pre className="rounded-md border border-[#DDD9D5] bg-white px-4 py-3 text-sm leading-relaxed text-[var(--ink-black)] whitespace-pre-wrap">
                   {node.semiformalProof}
                 </pre>
-              </section>
+              </CollapsibleSection>
             )}
 
             {/* Lean code (if generated) */}
             {node.leanCode && (
-              <section>
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#6B6560]">
-                  Proof Code
-                </h3>
+              <CollapsibleSection title="Proof Code">
                 <pre className="rounded-md border border-[#DDD9D5] bg-white px-4 py-3 font-mono text-sm leading-relaxed text-[var(--ink-black)] whitespace-pre-wrap">
                   {node.leanCode}
                 </pre>
-              </section>
-            )}
-
-            {/* Verification errors */}
-            {node.verificationErrors && (
-              <section>
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-red-800">
-                  Errors Found
-                </h3>
-                <pre className="rounded-md border border-red-300 bg-red-50 px-4 py-3 font-mono text-xs leading-relaxed text-red-700 whitespace-pre-wrap">
-                  {node.verificationErrors}
-                </pre>
-              </section>
+              </CollapsibleSection>
             )}
 
           {/* Non-deductive artifacts (property-tests, causal-graph, etc.) */}
@@ -197,8 +174,14 @@ export default function NodeDetailPanel({
             <NodeArtifactSection key={artifact.type} artifact={artifact} />
           ))}
 
-          {/* Separator between node info and formalization controls */}
-          <div className="border-t border-[#DDD9D5]" />
+            {node.verificationErrors && (
+              <CollapsibleSection title="Verification Errors" variant="error" defaultOpen={false}>
+                <pre className="rounded-md border border-red-300 bg-red-50 px-4 py-3 font-mono text-xs leading-relaxed text-red-700 whitespace-pre-wrap">
+                  {node.verificationErrors}
+                </pre>
+              </CollapsibleSection>
+            )}
+          </div>
         </div>
 
         {/* Docked controls — outside scroll container */}
