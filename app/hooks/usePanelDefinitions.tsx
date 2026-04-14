@@ -141,8 +141,8 @@ export function usePanelDefinitions(opts: PanelDefsInput): PanelDef[] {
       hidden: !hasPropertyTests && !propertyTestsLoading,
     },
     {
-      id: "balanced-perspectives" as PanelId,
-      label: "Balanced Perspectives",
+      id: "dialectical-map" as PanelId,
+      label: "Dialectical Map",
       icon: <DialecticalMapIcon />,
       group: "artifacts" as const,
       statusSummary: dialecticalMapLoading ? "Generating..." : hasDialecticalMap ? "Map ready" : "No map yet",

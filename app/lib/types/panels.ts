@@ -8,7 +8,7 @@ export type PanelId =
   | "causal-graph"
   | "statistical-model"
   | "property-tests"
-  | "balanced-perspectives"
+  | "dialectical-map"
   | "counterexamples"
   | "analytics";
 
