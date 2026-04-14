@@ -23,6 +23,10 @@ function buildLayout(
 
   // Only run Dagre if there are new nodes to position
   if (newNodeIds.length > 0) {
+    // Single Set for edge validation — during streaming, partial-JSON may
+    // produce truncated dependency IDs that reference non-existent nodes.
+    const nodeIds = new Set(propositions.map((p) => p.id));
+
     const g = new dagre.graphlib.Graph();
     g.setDefaultEdgeLabel(() => ({}));
     g.setGraph({ rankdir: "TB", nodesep: 40, ranksep: 60 });
@@ -32,7 +36,9 @@ function buildLayout(
     }
     for (const prop of propositions) {
       for (const depId of prop.dependsOn) {
-        g.setEdge(depId, prop.id);
+        if (nodeIds.has(depId)) {
+          g.setEdge(depId, prop.id);
+        }
       }
     }
 
@@ -56,12 +62,16 @@ function buildLayout(
   const edges: Edge[] = [];
   for (const prop of propositions) {
     for (const depId of prop.dependsOn) {
-      edges.push({
-        id: `${depId}->${prop.id}`,
-        source: depId,
-        target: prop.id,
-        style: { stroke: "#9A9590", strokeWidth: 1.5 },
-      });
+      // Guard against truncated dependency IDs during streaming (partial-JSON
+      // may produce dep references to nodes that don't exist yet).
+      if (propIds.has(depId)) {
+        edges.push({
+          id: `${depId}->${prop.id}`,
+          source: depId,
+          target: prop.id,
+          style: { stroke: "#9A9590", strokeWidth: 1.5 },
+        });
+      }
     }
   }
 
