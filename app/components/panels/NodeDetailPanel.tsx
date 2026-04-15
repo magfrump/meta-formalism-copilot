@@ -1,9 +1,11 @@
 "use client";
 
-import type { PropositionNode, NodeVerificationStatus } from "@/app/lib/types/decomposition";
+import type { PropositionNode, NodeVerificationStatus, NodeArtifact } from "@/app/lib/types/decomposition";
 import type { ArtifactType } from "@/app/lib/types/session";
 import type { ArtifactLoadingState } from "@/app/hooks/useArtifactGeneration";
+import { ARTIFACT_META } from "@/app/lib/types/artifacts";
 import FormalizationControls from "@/app/components/features/formalization-controls/FormalizationControls";
+import CollapsibleSection from "@/app/components/ui/CollapsibleSection";
 
 type NodeDetailPanelProps = {
   node: PropositionNode;
@@ -20,11 +22,50 @@ type NodeDetailPanelProps = {
 };
 
 const STATUS_LABELS: Record<NodeVerificationStatus, { text: string; color: string }> = {
-  unverified: { text: "Unverified", color: "var(--status-unverified)" },
+  unverified: { text: "Not checked", color: "var(--status-unverified)" },
   "in-progress": { text: "In Progress", color: "var(--status-in-progress)" },
-  verified: { text: "Verified", color: "var(--status-verified)" },
+  verified: { text: "Passed", color: "var(--status-verified)" },
   failed: { text: "Failed", color: "var(--status-failed)" },
 };
+
+/** Renders a single non-deductive artifact stored on a node */
+function NodeArtifactSection({ artifact }: { artifact: NodeArtifact }) {
+  const meta = ARTIFACT_META[artifact.type as keyof typeof ARTIFACT_META];
+  // Try to pretty-print JSON content; fall back to raw string
+  let display: string;
+  try {
+    const parsed = JSON.parse(artifact.content);
+    display = JSON.stringify(parsed, null, 2);
+  } catch {
+    display = artifact.content;
+  }
+
+  return (
+    <section>
+      <div className="mb-1 flex items-center gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B6560]">
+          {meta.label}
+        </h3>
+        {artifact.verificationStatus !== "unverified" && (
+          <span
+            className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase text-white"
+            style={{ backgroundColor: STATUS_LABELS[artifact.verificationStatus].color }}
+          >
+            {STATUS_LABELS[artifact.verificationStatus].text}
+          </span>
+        )}
+      </div>
+      <pre className="rounded-md border border-[#DDD9D5] bg-white px-4 py-3 font-mono text-sm leading-relaxed text-[var(--ink-black)] whitespace-pre-wrap max-h-80 overflow-auto">
+        {display}
+      </pre>
+      {artifact.verificationErrors && (
+        <pre className="mt-1 rounded-md border border-red-300 bg-red-50 px-4 py-2 font-mono text-xs leading-relaxed text-red-700 whitespace-pre-wrap">
+          {artifact.verificationErrors}
+        </pre>
+      )}
+    </section>
+  );
+}
 
 export default function NodeDetailPanel({
   node, dependencies, onFormalise, onGenerateLean, loading,
@@ -54,132 +95,123 @@ export default function NodeDetailPanel({
         </span>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-        {/* Node info section */}
-        <div className="flex flex-col gap-4 p-6 pb-2">
-          {/* Source Document */}
-          {node.sourceLabel && (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Scrollable node info section */}
+        <div className="flex-1 min-h-0 overflow-auto">
+          <div className="flex flex-col gap-4 p-6 pb-2">
+            {/* Source Document */}
+            {node.sourceLabel && (
+              <section>
+                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#6B6560]">
+                  Source Document
+                </h3>
+                <div className="rounded-md border border-[#DDD9D5] bg-white px-4 py-2 text-sm text-[var(--ink-black)]">
+                  {node.sourceLabel}
+                </div>
+              </section>
+            )}
+
+            {/* Statement */}
             <section>
               <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#6B6560]">
-                Source Document
-              </h3>
-              <div className="rounded-md border border-[#DDD9D5] bg-white px-4 py-2 text-sm text-[var(--ink-black)]">
-                {node.sourceLabel}
-              </div>
-            </section>
-          )}
-
-          {/* Statement */}
-          <section>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#6B6560]">
-              Statement
-            </h3>
-            <div className="rounded-md border border-[#DDD9D5] bg-white px-4 py-3 text-sm leading-relaxed text-[var(--ink-black)]">
-              {node.statement}
-            </div>
-          </section>
-
-          {/* Proof text */}
-          {node.proofText && (
-            <section>
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#6B6560]">
-                Proof
+                Statement
               </h3>
               <div className="rounded-md border border-[#DDD9D5] bg-white px-4 py-3 text-sm leading-relaxed text-[var(--ink-black)]">
-                {node.proofText}
+                {node.statement}
               </div>
             </section>
-          )}
 
-          {/* Dependencies */}
-          {dependencies.length > 0 && (
-            <section>
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#6B6560]">
-                Dependencies
-              </h3>
-              <div className="flex flex-col gap-1">
-                {dependencies.map((dep) => {
-                  const depStatus = STATUS_LABELS[dep.verificationStatus];
-                  return (
-                    <div key={dep.id} className="flex items-center gap-2 rounded-md border border-[#DDD9D5] bg-white px-3 py-2">
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: depStatus.color }}
-                      />
-                      <span className="text-xs font-medium text-[var(--ink-black)]">{dep.label}</span>
-                      <span className="text-[10px] text-[#9A9590]">{depStatus.text}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+            {/* Proof text */}
+            {node.proofText && (
+              <CollapsibleSection title="Proof" defaultOpen={false}>
+                <div className="rounded-md border border-[#DDD9D5] bg-white px-4 py-3 text-sm leading-relaxed text-[var(--ink-black)]">
+                  {node.proofText}
+                </div>
+              </CollapsibleSection>
+            )}
 
-          {/* Semiformal proof (if generated) */}
-          {node.semiformalProof && (
-            <section>
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#6B6560]">
-                Semiformal Proof
-              </h3>
-              <pre className="rounded-md border border-[#DDD9D5] bg-white px-4 py-3 text-sm leading-relaxed text-[var(--ink-black)] whitespace-pre-wrap">
-                {node.semiformalProof}
-              </pre>
-            </section>
-          )}
+            {/* Dependencies */}
+            {dependencies.length > 0 && (
+              <CollapsibleSection title="Depends On" count={dependencies.length} defaultOpen={false}>
+                <div className="flex flex-col gap-1">
+                  {dependencies.map((dep) => {
+                    const depStatus = STATUS_LABELS[dep.verificationStatus];
+                    return (
+                      <div key={dep.id} className="flex items-center gap-2 rounded-md border border-[#DDD9D5] bg-white px-3 py-2">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: depStatus.color }}
+                        />
+                        <span className="text-xs font-medium text-[var(--ink-black)]">{dep.label}</span>
+                        <span className="text-[10px] text-[#9A9590]">{depStatus.text}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CollapsibleSection>
+            )}
 
-          {/* Lean code (if generated) */}
-          {node.leanCode && (
-            <section>
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#6B6560]">
-                Lean4 Code
-              </h3>
-              <pre className="rounded-md border border-[#DDD9D5] bg-white px-4 py-3 font-mono text-sm leading-relaxed text-[var(--ink-black)] whitespace-pre-wrap">
-                {node.leanCode}
-              </pre>
-            </section>
-          )}
+            {/* Semiformal proof (if generated) */}
+            {node.semiformalProof && (
+              <CollapsibleSection title="Step-by-Step Proof">
+                <pre className="rounded-md border border-[#DDD9D5] bg-white px-4 py-3 text-sm leading-relaxed text-[var(--ink-black)] whitespace-pre-wrap">
+                  {node.semiformalProof}
+                </pre>
+              </CollapsibleSection>
+            )}
 
-          {/* Verification errors */}
-          {node.verificationErrors && (
-            <section>
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-red-800">
-                Verification Errors
-              </h3>
-              <pre className="rounded-md border border-red-300 bg-red-50 px-4 py-3 font-mono text-xs leading-relaxed text-red-700 whitespace-pre-wrap">
-                {node.verificationErrors}
-              </pre>
-            </section>
-          )}
+            {/* Lean code (if generated) */}
+            {node.leanCode && (
+              <CollapsibleSection title="Proof Code">
+                <pre className="rounded-md border border-[#DDD9D5] bg-white px-4 py-3 font-mono text-sm leading-relaxed text-[var(--ink-black)] whitespace-pre-wrap">
+                  {node.leanCode}
+                </pre>
+              </CollapsibleSection>
+            )}
 
-          {/* Separator between node info and formalization controls */}
-          <div className="border-t border-[#DDD9D5]" />
+          {/* Non-deductive artifacts (property-tests, causal-graph, etc.) */}
+          {node.artifacts.length > 0 && node.artifacts.map((artifact) => (
+            <NodeArtifactSection key={artifact.type} artifact={artifact} />
+          ))}
+
+            {node.verificationErrors && (
+              <CollapsibleSection title="Verification Errors" variant="error" defaultOpen={false}>
+                <pre className="rounded-md border border-red-300 bg-red-50 px-4 py-3 font-mono text-xs leading-relaxed text-red-700 whitespace-pre-wrap">
+                  {node.verificationErrors}
+                </pre>
+              </CollapsibleSection>
+            )}
+          </div>
         </div>
 
-        {/* Lean generation button (when semiformal exists but lean doesn't) */}
-        {showLeanButton && (
-          <div className="shrink-0 px-4 pb-2">
-            <button
-              type="button"
-              onClick={onGenerateLean}
-              disabled={loading}
-              className="w-full rounded-full bg-[var(--ink-black)] px-6 py-2.5 text-sm font-medium text-white shadow-md transition-shadow duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--ink-black)] focus:ring-offset-2 focus:ring-offset-[var(--ivory-cream)] disabled:opacity-50"
-            >
-              {loading ? "Generating..." : "Generate Lean4 Code"}
-            </button>
-          </div>
-        )}
+        {/* Docked controls — outside scroll container */}
+        <div className="shrink-0 border-t border-[#DDD9D5]">
+          {/* Lean generation button (when semiformal exists but lean doesn't) */}
+          {showLeanButton && (
+            <div className="px-4 py-2">
+              <button
+                type="button"
+                onClick={onGenerateLean}
+                disabled={loading}
+                className="w-full rounded-full bg-[var(--ink-black)] px-6 py-2.5 text-sm font-medium text-white shadow-md transition-shadow duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--ink-black)] focus:ring-offset-2 focus:ring-offset-[var(--ivory-cream)] disabled:opacity-50"
+              >
+                {loading ? "Generating..." : "Generate Proof Code"}
+              </button>
+            </div>
+          )}
 
-        {/* Formalization controls: per-node context, artifact chips, Formalise button */}
-        <FormalizationControls
-          contextText={node.context}
-          onContextChange={onNodeContextChange}
-          selectedArtifactTypes={node.selectedArtifactTypes}
-          onArtifactTypesChange={onNodeArtifactTypesChange}
-          onGenerate={onFormalise}
-          loading={loading}
-          loadingState={loadingState}
-          contextPlaceholder={globalContextText || "e.g., Explore this in the context of decision theory within game-theoretic settings..."}
-        />
+          {/* Formalization controls: per-node context, artifact chips, Formalise button */}
+          <FormalizationControls
+            contextText={node.context}
+            onContextChange={onNodeContextChange}
+            selectedArtifactTypes={node.selectedArtifactTypes}
+            onArtifactTypesChange={onNodeArtifactTypesChange}
+            onGenerate={onFormalise}
+            loading={loading}
+            loadingState={loadingState}
+            contextPlaceholder={globalContextText || "e.g., Analyze this from a decision-making perspective, considering strategic interactions between actors..."}
+          />
+        </div>
       </div>
     </div>
   );

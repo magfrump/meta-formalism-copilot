@@ -1,9 +1,10 @@
 "use client";
 
 import type { PropertyTestsResponse } from "@/app/lib/types/artifacts";
-import { mergeStreamingPreview } from "@/app/lib/utils/mergeStreamingPreview";
-import ArtifactPanelShell, { type ArtifactEditingProps } from "./ArtifactPanelShell";
+import { useStreamingMerge } from "@/app/hooks/useStreamingMerge";
+import ArtifactPanelShell, { type ArtifactEditingProps, type StalenessProps } from "./ArtifactPanelShell";
 import EditableSection from "@/app/components/features/output-editing/EditableSection";
+import CollapsibleSection from "@/app/components/ui/CollapsibleSection";
 import { useFieldUpdaters } from "@/app/hooks/useFieldUpdaters";
 
 type PropertyTestsPanelProps = {
@@ -12,29 +13,32 @@ type PropertyTestsPanelProps = {
   streamingPreview?: PropertyTestsResponse["propertyTests"] | null;
   loading?: boolean;
   onContentChange?: (json: string) => void;
-} & ArtifactEditingProps;
+} & ArtifactEditingProps & StalenessProps;
 
 export default function PropertyTestsPanel({
   propertyTests, streamingPreview, loading,
   onContentChange, onAiEdit, editing, editWaitEstimate,
+  isStale, onRegenerate,
 }: PropertyTestsPanelProps) {
   const { updateField, updateArrayItem } = useFieldUpdaters(propertyTests, onContentChange);
 
-  const { displayData, hasDisplayData } = mergeStreamingPreview(
+  const { displayData, hasDisplayData } = useStreamingMerge(
     propertyTests, streamingPreview,
     (d) => (d.properties?.length ?? 0) > 0,
   );
 
   return (
     <ArtifactPanelShell
-      title="Property Tests"
+      title="Consistency Checks"
       loading={loading && !hasDisplayData}
       hasData={hasDisplayData}
-      emptyMessage="No property tests yet. Generate them from the source panel or node detail."
-      loadingMessage="Generating property tests..."
+      emptyMessage="No consistency checks yet. Generate them from the Source panel or component detail."
+      loadingMessage="Generating consistency checks..."
       onAiEdit={onAiEdit}
       editing={editing}
       editWaitEstimate={editWaitEstimate}
+      isStale={isStale}
+      onRegenerate={onRegenerate}
     >
       {hasDisplayData && displayData && (
         <>
@@ -50,10 +54,7 @@ export default function PropertyTestsPanel({
 
           {/* Properties */}
           {(displayData.properties?.length ?? 0) > 0 && (
-          <section>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B6560] mb-2">
-              Properties ({displayData.properties.length})
-            </h3>
+          <CollapsibleSection title="Rules" defaultOpen={false} count={displayData.properties.length}>
             <div className="space-y-3">
               {displayData.properties.map((p, i) => (
                 <EditableSection key={p.id} value={p} onChange={(newP) => updateArrayItem("properties", i, newP)}>
@@ -64,10 +65,10 @@ export default function PropertyTestsPanel({
                     </div>
                     <p className="text-xs text-[#6B6560]">{p.description}</p>
                     <div className="text-xs text-[#6B6560]">
-                      <span className="font-semibold">Pre:</span> {p.preconditions}
+                      <span className="font-semibold">Requires:</span> {p.preconditions}
                     </div>
                     <div className="text-xs text-[#6B6560]">
-                      <span className="font-semibold">Post:</span> {p.postcondition}
+                      <span className="font-semibold">Guarantees:</span> {p.postcondition}
                     </div>
                     <pre className="rounded bg-[#F5F1ED] px-3 py-2 text-xs font-mono text-[var(--ink-black)] overflow-x-auto whitespace-pre-wrap">
                       {p.pseudocode}
@@ -76,15 +77,12 @@ export default function PropertyTestsPanel({
                 </EditableSection>
               ))}
             </div>
-          </section>
+          </CollapsibleSection>
           )}
 
           {/* Data Generators */}
           {(displayData.dataGenerators?.length ?? 0) > 0 && (
-            <section>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B6560] mb-2">
-                Data Generators ({displayData.dataGenerators.length})
-              </h3>
+            <CollapsibleSection title="Test Data" defaultOpen={false} count={displayData.dataGenerators.length}>
               <div className="space-y-2">
                 {displayData.dataGenerators.map((g, i) => (
                   <EditableSection key={i} value={g} onChange={(newG) => updateArrayItem("dataGenerators", i, newG)}>
@@ -98,7 +96,7 @@ export default function PropertyTestsPanel({
                   </EditableSection>
                 ))}
               </div>
-            </section>
+            </CollapsibleSection>
           )}
         </>
       )}

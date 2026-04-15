@@ -33,13 +33,19 @@ export default function EditableSection({ value, onChange, children }: EditableS
   // Uses a ref to track the previous serialized value so we only close on
   // genuine external changes, not after the user's own save.
   const prevSerializedRef = useRef<string | null>(null);
-  const serialized = JSON.stringify(value);
+  const serialized = editing ? JSON.stringify(value) : null;
   useEffect(() => {
-    if (prevSerializedRef.current !== null && prevSerializedRef.current !== serialized && editing) {
+    if (!editing || serialized === null) return;
+    if (prevSerializedRef.current !== null && prevSerializedRef.current !== serialized) {
       setEditing(false);
     }
     prevSerializedRef.current = serialized;
   }, [serialized, editing]);
+
+  // Focus textarea when entering edit mode
+  useEffect(() => {
+    if (editing) textareaRef.current?.focus();
+  }, [editing]);
 
   const startEditing = useCallback(() => {
     const text = isString ? (value as string) : JSON.stringify(value, null, 2);
@@ -81,11 +87,11 @@ export default function EditableSection({ value, onChange, children }: EditableS
         setEditText(data.text);
       } else {
         // JSON-aware editing for objects/arrays
-        const data = await fetchApi<{ content: string }>("/api/edit/artifact", {
+        const data = await fetchApi<{ text: string }>("/api/edit/artifact", {
           content: editText,
           instruction: aiInstruction,
         });
-        setEditText(data.content);
+        setEditText(data.text);
       }
       setAiInstruction("");
       setParseError(null);

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
-import type { PropositionNode, SourceDocument } from "@/app/lib/types/decomposition";
+import type { PropositionNode, SourceDocument, GraphLayout } from "@/app/lib/types/decomposition";
 import type { ArtifactType } from "@/app/lib/types/session";
 import type { QueueProgress } from "@/app/hooks/useAutoFormalizeQueue";
+import { useStreamingMerge } from "@/app/hooks/useStreamingMerge";
 import ArtifactChipSelector from "@/app/components/features/artifact-selector/ArtifactChipSelector";
 import DownloadButton from "@/app/components/ui/DownloadButton";
 
@@ -25,6 +26,7 @@ const SOURCE_COLORS = [
 
 type GraphPanelProps = {
   propositions: PropositionNode[];
+  streamingPropositions?: PropositionNode[] | null;
   selectedNodeId: string | null;
   onSelectNode: (id: string) => void;
   hasContent: boolean;
@@ -37,10 +39,18 @@ type GraphPanelProps = {
   onPauseQueue: () => void;
   onResumeQueue: () => void;
   onCancelQueue: () => void;
+  graphLayout?: GraphLayout;
+  onLayoutChange?: (layout: GraphLayout) => void;
+  onAddNode?: () => void;
+  onDeleteNode?: (nodeId: string) => void;
+  onRenameNode?: (nodeId: string, label: string) => void;
+  onConnectNodes?: (fromId: string, toId: string) => boolean;
+  onDeleteEdges?: (edges: Array<{ source: string; target: string }>) => void;
 };
 
 export default function GraphPanel({
   propositions,
+  streamingPropositions,
   selectedNodeId,
   onSelectNode,
   hasContent,
@@ -53,11 +63,28 @@ export default function GraphPanel({
   onPauseQueue,
   onResumeQueue,
   onCancelQueue,
+  graphLayout,
+  onLayoutChange,
+  onAddNode,
+  onDeleteNode,
+  onRenameNode,
+  onConnectNodes,
+  onDeleteEdges,
 }: GraphPanelProps) {
-  const hasNodes = propositions.length > 0;
+  const { displayData: displayPropositions, hasDisplayData: hasNodes } = useStreamingMerge(
+    propositions.length > 0 ? propositions : null,
+    streamingPropositions,
+    (data: PropositionNode[]) => data.length > 0,
+  );
   const [exporting, setExporting] = useState(false);
   const [showArtifactPicker, setShowArtifactPicker] = useState(false);
   const [queueArtifactTypes, setQueueArtifactTypes] = useState<ArtifactType[]>([]);
+  const [progressDismissed, setProgressDismissed] = useState(false);
+
+  // Reset dismissed state when queue starts again
+  useEffect(() => {
+    if (queueProgress.status === "running") setProgressDismissed(false);
+  }, [queueProgress.status]);
   const sourceCount = sourceDocuments.length;
 
   const queueActive = queueProgress.status === "running" || queueProgress.status === "paused";
@@ -73,8 +100,8 @@ export default function GraphPanel({
   }, [sourceDocuments]);
 
   const buttonLabel = extractionStatus === "extracting"
-    ? "Decomposing..."
-    : `Decompose ${sourceCount} Source${sourceCount !== 1 ? "s" : ""}`;
+    ? "Breaking down..."
+    : `Break down ${sourceCount} source${sourceCount !== 1 ? "s" : ""}`;
 
   const handleExportGraph = useCallback(async () => {
     setExporting(true);
@@ -94,9 +121,18 @@ export default function GraphPanel({
     <div className="flex h-full flex-col overflow-hidden bg-[var(--ivory-cream)]">
       <div className="flex items-center justify-between border-b border-[#DDD9D5] bg-[#F5F1ED] px-6 py-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--ink-black)]">
-          Decomposition
+          Breakdown
         </h2>
         <div className="flex items-center gap-2">
+          {hasNodes && onAddNode && (
+            <button
+              onClick={onAddNode}
+              className="rounded-full border border-[#DDD9D5] bg-white px-3 py-1.5 text-xs font-medium text-[var(--ink-black)] shadow-sm hover:bg-[#F5F1ED]"
+              title="Add a new node to the graph"
+            >
+              + Node
+            </button>
+          )}
           {hasNodes && (
             <DownloadButton
               label={exporting ? "Exporting..." : "Export .png"}
@@ -105,7 +141,7 @@ export default function GraphPanel({
             />
           )}
           {/* Formalize All / queue controls */}
-          {hasNodes && !queueActive && queueProgress.status !== "done" && !showArtifactPicker && (
+          {hasNodes && !queueActive && !showArtifactPicker && (
             <button
               onClick={() => {
                 // Default to global selection, or semiformal if nothing selected globally
@@ -117,7 +153,7 @@ export default function GraphPanel({
               disabled={extractionStatus === "extracting"}
               className="rounded-full bg-emerald-700 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-shadow hover:shadow-md disabled:opacity-50"
             >
-              Formalize All
+              {queueProgress.status === "done" ? "Generate All Again" : "Generate All"}
             </button>
           )}
           {queueActive && (
@@ -158,20 +194,31 @@ export default function GraphPanel({
       </div>
 
       {/* Progress bar — shown when queue is active or just finished */}
-      {(queueActive || queueProgress.status === "done") && queueProgress.total > 0 && (
+      {(queueActive || (queueProgress.status === "done" && !progressDismissed)) && queueProgress.total > 0 && (
         <div className="border-b border-[#DDD9D5] bg-[#F5F1ED] px-6 py-2">
           <div className="flex items-center justify-between text-xs text-[#6B6560]">
             <span>
-              {queueProgress.completed} verified
+              {queueProgress.completed} done
               {queueProgress.failed > 0 && `, ${queueProgress.failed} failed`}
               {queueProgress.skipped > 0 && `, ${queueProgress.skipped} skipped`}
               {" / "}
               {queueProgress.total} total
             </span>
-            <span>
+            <span className="flex items-center gap-2">
               {queueProgress.status === "paused" && "Paused"}
               {queueProgress.status === "running" && "Running..."}
               {queueProgress.status === "done" && "Done"}
+              {queueProgress.status === "done" && (
+                <button
+                  onClick={() => setProgressDismissed(true)}
+                  className="rounded p-0.5 text-[#9A9590] hover:text-[var(--ink-black)] transition-colors"
+                  title="Dismiss"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M3 3l6 6M9 3l-6 6" />
+                  </svg>
+                </button>
+              )}
             </span>
           </div>
           <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[#DDD9D5]">
@@ -190,7 +237,7 @@ export default function GraphPanel({
       {showArtifactPicker && (
         <div className="border-b border-[#DDD9D5] bg-[#FDFCFB] px-6 py-3">
           <p className="mb-2 text-xs font-medium text-[#6B6560]">
-            Select formalization types to generate for all nodes:
+            Select output types to generate for all parts:
           </p>
           <ArtifactChipSelector
             selected={queueArtifactTypes}
@@ -235,13 +282,13 @@ export default function GraphPanel({
       <div className="flex min-h-0 flex-1 flex-col">
         {!hasContent && (
           <div className="flex flex-1 items-center justify-center text-sm text-[#9A9590]">
-            Upload a paper in the Source panel first
+            Add your source material in the Source panel first
           </div>
         )}
 
         {hasContent && !hasNodes && extractionStatus !== "extracting" && (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-[#9A9590]">
-            <p>Click &quot;{buttonLabel}&quot; to extract propositions</p>
+            <p>Click &quot;{buttonLabel}&quot; to extract key claims</p>
             {extractionStatus === "error" && (
               <p className="text-red-600">Extraction failed. Try again.</p>
             )}
@@ -250,16 +297,22 @@ export default function GraphPanel({
 
         {extractionStatus === "extracting" && !hasNodes && (
           <div className="flex flex-1 items-center justify-center text-sm text-[#6B6560]">
-            Extracting propositions...
+            Extracting key claims...
           </div>
         )}
 
-        {hasNodes && (
+        {hasNodes && displayPropositions && (
           <ProofGraph
-            propositions={propositions}
+            propositions={displayPropositions}
             selectedNodeId={selectedNodeId}
             onSelectNode={onSelectNode}
             sourceColorMap={sourceColorMap}
+            initialPositions={graphLayout?.positions}
+            onLayoutChange={onLayoutChange}
+            onConnect={onConnectNodes}
+            onEdgesDelete={onDeleteEdges}
+            onNodeDelete={onDeleteNode}
+            onNodeRename={onRenameNode}
           />
         )}
       </div>

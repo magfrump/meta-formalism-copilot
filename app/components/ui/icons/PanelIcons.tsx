@@ -106,8 +106,8 @@ export function PropertyTestsIcon({ className }: IconProps) {
   );
 }
 
-/** Scales/balance icon for Dialectical Map */
-export function DialecticalMapIcon({ className }: IconProps) {
+/** Scales/balance icon for Balanced Perspectives */
+export function BalancedPerspectivesIcon({ className }: IconProps) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <line x1="10" y1="2" x2="10" y2="18" />
@@ -126,6 +126,17 @@ export function CounterexamplesIcon({ className }: IconProps) {
       <polygon points="10 2 18 17 2 17" />
       <line x1="10" y1="8" x2="10" y2="12" />
       <circle cx="10" cy="14.5" r="0.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** Puzzle piece icon for Custom Artifact types */
+export function CustomArtifactIcon({ className }: IconProps) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="4" width="12" height="12" rx="1" />
+      <path d="M8 4v-1a2 2 0 0 1 4 0v1" />
+      <path d="M16 8h1a2 2 0 0 1 0 4h-1" />
     </svg>
   );
 }

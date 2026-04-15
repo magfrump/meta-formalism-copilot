@@ -5,14 +5,20 @@ export type SessionScope =
   | { type: "global" }
   | { type: "node"; nodeId: string; nodeLabel: string };
 
-export type ArtifactType =
+import type { CustomArtifactTypeId } from "./customArtifact";
+
+/** The fixed set of artifact types shipped with the app. */
+export type BuiltinArtifactType =
   | "semiformal"
   | "lean"
   | "causal-graph"
   | "statistical-model"
   | "property-tests"
-  | "dialectical-map"
+  | "balanced-perspectives"
   | "counterexamples";
+
+/** Any artifact type — built-in or user-defined custom type. */
+export type ArtifactType = BuiltinArtifactType | CustomArtifactTypeId;
 
 export type ArtifactData = {
   type: ArtifactType;

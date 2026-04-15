@@ -1,5 +1,6 @@
 import type { PropositionNode, NodeVerificationStatus } from "@/app/lib/types/decomposition";
 import type { VerificationStatus } from "@/app/lib/types/session";
+import type { CustomArtifactTypeDefinition } from "@/app/lib/types/customArtifact";
 import type { PersistedWorkspace, PersistedDecomposition } from "@/app/lib/types/persistence";
 import { WORKSPACE_VERSION, WORKSPACE_KEY } from "@/app/lib/types/persistence";
 
@@ -59,8 +60,10 @@ export type ArtifactPersistenceData = {
   causalGraph: string | null;
   statisticalModel: string | null;
   propertyTests: string | null;
-  dialecticalMap: string | null;
+  balancedPerspectives?: string | null;
+  dialecticalMap?: string | null;
   counterexamples: string | null;
+  customArtifactData?: Record<string, string | null>;
 };
 
 export type SaveWorkspaceInput = {
@@ -74,10 +77,12 @@ export type SaveWorkspaceInput = {
   verificationErrors: string;
   decomposition: PersistedDecomposition;
   artifacts?: ArtifactPersistenceData;
+  customArtifactTypes?: CustomArtifactTypeDefinition[];
+  customArtifactData?: Record<string, string | null>;
 };
 
 export function saveWorkspace(input: SaveWorkspaceInput): boolean {
-  const artifacts = input.artifacts ?? { causalGraph: null, statisticalModel: null, propertyTests: null, dialecticalMap: null, counterexamples: null };
+  const artifacts = input.artifacts ?? { causalGraph: null, statisticalModel: null, propertyTests: null, balancedPerspectives: null, counterexamples: null, customArtifactData: {} };
   const data: PersistedWorkspace = {
     version: WORKSPACE_VERSION,
     sourceText: input.sourceText,
@@ -95,8 +100,10 @@ export function saveWorkspace(input: SaveWorkspaceInput): boolean {
     causalGraph: artifacts.causalGraph,
     statisticalModel: artifacts.statisticalModel,
     propertyTests: artifacts.propertyTests,
-    dialecticalMap: artifacts.dialecticalMap,
+    balancedPerspectives: artifacts.balancedPerspectives ?? artifacts.dialecticalMap ?? null,
     counterexamples: artifacts.counterexamples,
+    customArtifactTypes: input.customArtifactTypes ?? [],
+    customArtifactData: input.customArtifactData ?? artifacts.customArtifactData ?? {},
   };
 
   try {
@@ -107,11 +114,23 @@ export function saveWorkspace(input: SaveWorkspaceInput): boolean {
   }
 }
 
-function isObject(v: unknown): v is Record<string, unknown> {
+export function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-function coerceDecomposition(raw: unknown): PersistedDecomposition {
+/** Validate that a deserialized object is a well-formed CustomArtifactTypeDefinition. */
+export function isValidCustomTypeDef(v: unknown): v is CustomArtifactTypeDefinition {
+  if (!isObject(v)) return false;
+  return (
+    typeof v.id === "string" && v.id.startsWith("custom-") &&
+    typeof v.name === "string" && v.name.length > 0 &&
+    typeof v.chipLabel === "string" && v.chipLabel.length > 0 &&
+    typeof v.systemPrompt === "string" && v.systemPrompt.length > 0 &&
+    (v.outputFormat === "json" || v.outputFormat === "text")
+  );
+}
+
+export function coerceDecomposition(raw: unknown): PersistedDecomposition {
   if (!isObject(raw)) {
     return { nodes: [], selectedNodeId: null, paperText: "", sources: [] };
   }
@@ -136,6 +155,30 @@ function coerceDecomposition(raw: unknown): PersistedDecomposition {
       } as PropositionNode))
     : [];
 
+  // Validate graphLayout: positions must be Record<string, {x: number, y: number}>
+  let graphLayout: import("@/app/lib/types/decomposition").GraphLayout | undefined;
+  if (isObject(raw.graphLayout)) {
+    const rawLayout = raw.graphLayout as Record<string, unknown>;
+    if (isObject(rawLayout.positions)) {
+      const rawPositions = rawLayout.positions as Record<string, unknown>;
+      const positions: Record<string, { x: number; y: number }> = {};
+      for (const [key, val] of Object.entries(rawPositions)) {
+        if (isObject(val) && typeof val.x === "number" && typeof val.y === "number") {
+          positions[key] = { x: val.x, y: val.y };
+        }
+      }
+      if (Object.keys(positions).length > 0) {
+        graphLayout = { positions };
+        if (isObject(rawLayout.viewport)) {
+          const vp = rawLayout.viewport as Record<string, unknown>;
+          if (typeof vp.x === "number" && typeof vp.y === "number" && typeof vp.zoom === "number") {
+            graphLayout.viewport = { x: vp.x, y: vp.y, zoom: vp.zoom };
+          }
+        }
+      }
+    }
+  }
+
   return {
     nodes,
     selectedNodeId: typeof raw.selectedNodeId === "string" ? raw.selectedNodeId : null,
@@ -145,6 +188,7 @@ function coerceDecomposition(raw: unknown): PersistedDecomposition {
       sourceLabel: typeof s.sourceLabel === "string" ? s.sourceLabel : "",
       text: typeof s.text === "string" ? s.text : "",
     })) : [],
+    graphLayout,
   };
 }
 
@@ -187,8 +231,18 @@ export function loadWorkspace(): PersistedWorkspace | null {
       causalGraph: typeof parsed.causalGraph === "string" ? parsed.causalGraph : null,
       statisticalModel: typeof parsed.statisticalModel === "string" ? parsed.statisticalModel : null,
       propertyTests: typeof parsed.propertyTests === "string" ? parsed.propertyTests : null,
-      dialecticalMap: typeof parsed.dialecticalMap === "string" ? parsed.dialecticalMap : null,
+      balancedPerspectives: typeof parsed.balancedPerspectives === "string" ? parsed.balancedPerspectives : (typeof parsed.dialecticalMap === "string" ? parsed.dialecticalMap : null),
       counterexamples: typeof parsed.counterexamples === "string" ? parsed.counterexamples : null,
+      customArtifactTypes: Array.isArray(parsed.customArtifactTypes)
+        ? (parsed.customArtifactTypes as unknown[]).filter(isValidCustomTypeDef)
+        : [],
+      customArtifactData: isObject(parsed.customArtifactData)
+        ? Object.fromEntries(
+            Object.entries(parsed.customArtifactData as Record<string, unknown>)
+              .filter(([, v]) => typeof v === "string" || v === null)
+              .map(([k, v]) => [k, v as string | null]),
+          )
+        : {},
     };
   } catch {
     return null;

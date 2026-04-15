@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import type { CausalGraphResponse } from "@/app/lib/types/artifacts";
+import CollapsibleSection from "@/app/components/ui/CollapsibleSection";
 import type { WaitTimeEstimate } from "@/app/hooks/useWaitTimeEstimate";
-import { mergeStreamingPreview } from "@/app/lib/utils/mergeStreamingPreview";
-import ArtifactPanelShell, { type ArtifactEditingProps } from "./ArtifactPanelShell";
+import { useStreamingMerge } from "@/app/hooks/useStreamingMerge";
+import ArtifactPanelShell, { type ArtifactEditingProps, type StalenessProps } from "./ArtifactPanelShell";
 import CausalGraphView from "@/app/components/features/causal-graph/CausalGraphView";
 import EditableSection from "@/app/components/features/output-editing/EditableSection";
 import { useFieldUpdaters } from "@/app/hooks/useFieldUpdaters";
@@ -16,7 +17,7 @@ type CausalGraphPanelProps = {
   loading?: boolean;
   waitEstimate?: WaitTimeEstimate | null;
   onContentChange?: (json: string) => void;
-} & ArtifactEditingProps;
+} & ArtifactEditingProps & StalenessProps;
 
 type ViewMode = "graph" | "details";
 
@@ -42,7 +43,6 @@ function DetailsView({
 
   return (
     <>
-      {/* Summary */}
       <section>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B6560] mb-2">Summary</h3>
         <EditableSection value={causalGraph.summary} onChange={(v) => updateField("summary", v)}>
@@ -50,11 +50,7 @@ function DetailsView({
         </EditableSection>
       </section>
 
-      {/* Variables */}
-      <section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B6560] mb-2">
-          Variables ({causalGraph.variables.length})
-        </h3>
+      <CollapsibleSection title="Factors" defaultOpen={false} count={causalGraph.variables.length}>
         <div className="space-y-2">
           {causalGraph.variables.map((v, i) => (
             <EditableSection key={v.id} value={v} onChange={(newV) => updateArrayItem("variables", i, newV)}>
@@ -68,13 +64,9 @@ function DetailsView({
             </EditableSection>
           ))}
         </div>
-      </section>
+      </CollapsibleSection>
 
-      {/* Edges */}
-      <section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B6560] mb-2">
-          Causal Edges ({causalGraph.edges.length})
-        </h3>
+      <CollapsibleSection title="Relationships" defaultOpen={false} count={causalGraph.edges.length}>
         <div className="space-y-2">
           {causalGraph.edges.map((e, i) => (
             <EditableSection key={`${e.from}-${e.to}-${i}`} value={e} onChange={(newE) => updateArrayItem("edges", i, newE)}>
@@ -90,14 +82,10 @@ function DetailsView({
             </EditableSection>
           ))}
         </div>
-      </section>
+      </CollapsibleSection>
 
-      {/* Confounders */}
       {causalGraph.confounders.length > 0 && (
-        <section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B6560] mb-2">
-            Confounders ({causalGraph.confounders.length})
-          </h3>
+        <CollapsibleSection title="Hidden Factors" defaultOpen={false} count={causalGraph.confounders.length}>
           <div className="space-y-2">
             {causalGraph.confounders.map((c, i) => (
               <EditableSection key={c.id} value={c} onChange={(newC) => updateArrayItem("confounders", i, newC)}>
@@ -110,7 +98,7 @@ function DetailsView({
               </EditableSection>
             ))}
           </div>
-        </section>
+        </CollapsibleSection>
       )}
     </>
   );
@@ -119,29 +107,32 @@ function DetailsView({
 export default function CausalGraphPanel({
   causalGraph, streamingPreview, loading, waitEstimate,
   onContentChange, onAiEdit, editing, editWaitEstimate,
+  isStale, onRegenerate,
 }: CausalGraphPanelProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("graph");
 
-  const { displayData: displayGraph, hasDisplayData } = mergeStreamingPreview(
+  const { displayData: displayGraph, hasDisplayData } = useStreamingMerge(
     causalGraph, streamingPreview,
     (d) => (d.variables?.length ?? 0) > 0,
   );
 
   return (
     <ArtifactPanelShell
-      title="Causal Graph"
+      title="Cause & Effect Map"
       loading={loading && !hasDisplayData}
       hasData={hasDisplayData}
-      emptyMessage="No causal graph yet. Generate one from the source panel or node detail."
-      loadingMessage={`Generating causal graph...${waitEstimate ? ` ${waitEstimate.remainingLabel}` : ""}`}
+      emptyMessage="No cause & effect map yet. Generate one from the Source panel or component detail."
+      loadingMessage={`Generating cause & effect map...${waitEstimate ? ` ${waitEstimate.remainingLabel}` : ""}`}
       onAiEdit={onAiEdit}
       editing={editing}
       editWaitEstimate={editWaitEstimate}
+      isStale={isStale}
+      onRegenerate={onRegenerate}
     >
       {hasDisplayData && displayGraph && (
         <div className="flex flex-col h-full">
-          {/* View toggle */}
-          <div className="flex gap-1 mb-3">
+          {/* View toggle — sticky so it doesn't scroll away with graph content */}
+          <div className="sticky top-0 z-10 flex gap-1 mb-3 bg-[var(--ivory-cream)] pb-2">
             <button
               onClick={() => setViewMode("graph")}
               className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
