@@ -8,6 +8,7 @@ import type { QueueProgress } from "@/app/hooks/useAutoFormalizeQueue";
 import { useStreamingMerge } from "@/app/hooks/useStreamingMerge";
 import ArtifactChipSelector from "@/app/components/features/artifact-selector/ArtifactChipSelector";
 import DownloadButton from "@/app/components/ui/DownloadButton";
+import CostTooltip from "@/app/components/ui/CostTooltip";
 
 // Dynamic import to avoid SSR issues with ReactFlow
 const ProofGraph = dynamic(
@@ -90,6 +91,11 @@ export default function GraphPanel({
   const queueActive = queueProgress.status === "running" || queueProgress.status === "paused";
   const processed = queueProgress.completed + queueProgress.failed + queueProgress.skipped;
   const progressPct = queueProgress.total > 0 ? (processed / queueProgress.total) * 100 : 0;
+
+  const totalInputCharLength = useMemo(
+    () => sourceDocuments.reduce((sum, doc) => sum + doc.text.length, 0),
+    [sourceDocuments],
+  );
 
   const sourceColorMap: Record<string, string> = useMemo(() => {
     const map: Record<string, string> = {};
@@ -182,13 +188,19 @@ export default function GraphPanel({
             </>
           )}
           {hasContent && (
-            <button
-              onClick={onDecompose}
-              disabled={extractionStatus === "extracting" || queueActive}
-              className="rounded-full bg-[var(--ink-black)] px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-shadow hover:shadow-md disabled:opacity-50"
+            <CostTooltip
+              inputCharLength={totalInputCharLength}
+              artifactTypes={["decomposition"]}
+              position="below"
             >
-              {buttonLabel}
-            </button>
+              <button
+                onClick={onDecompose}
+                disabled={extractionStatus === "extracting" || queueActive}
+                className="rounded-full bg-[var(--ink-black)] px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-shadow hover:shadow-md disabled:opacity-50"
+              >
+                {buttonLabel}
+              </button>
+            </CostTooltip>
           )}
         </div>
       </div>
@@ -289,6 +301,9 @@ export default function GraphPanel({
         {hasContent && !hasNodes && extractionStatus !== "extracting" && (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-[#9A9590]">
             <p>Click &quot;{buttonLabel}&quot; to extract key claims</p>
+            {onAddNode && (
+              <p>or <button onClick={onAddNode} className="text-[var(--ink-black)] underline hover:no-underline">add a node manually</button></p>
+            )}
             {extractionStatus === "error" && (
               <p className="text-red-600">Extraction failed. Try again.</p>
             )}

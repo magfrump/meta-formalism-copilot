@@ -54,9 +54,9 @@ export default function PropertyTestsPanel({
 
           {/* Properties */}
           {(displayData.properties?.length ?? 0) > 0 && (
-          <CollapsibleSection title="Rules" defaultOpen={false} count={displayData.properties.length}>
+          <CollapsibleSection title="Rules" defaultOpen={false} count={displayData.properties?.length}>
             <div className="space-y-3">
-              {displayData.properties.map((p, i) => (
+              {displayData.properties?.map((p, i) => (
                 <EditableSection key={p.id} value={p} onChange={(newP) => updateArrayItem("properties", i, newP)}>
                   <div className="rounded border border-[#DDD9D5] bg-white px-3 py-2 space-y-2">
                     <div className="flex items-center gap-2">
@@ -82,9 +82,9 @@ export default function PropertyTestsPanel({
 
           {/* Data Generators */}
           {(displayData.dataGenerators?.length ?? 0) > 0 && (
-            <CollapsibleSection title="Test Data" defaultOpen={false} count={displayData.dataGenerators.length}>
+            <CollapsibleSection title="Test Data" defaultOpen={false} count={displayData.dataGenerators?.length}>
               <div className="space-y-2">
-                {displayData.dataGenerators.map((g, i) => (
+                {displayData.dataGenerators?.map((g, i) => (
                   <EditableSection key={i} value={g} onChange={(newG) => updateArrayItem("dataGenerators", i, newG)}>
                     <div className="rounded border border-[#DDD9D5] bg-white px-3 py-2">
                       <span className="text-sm font-medium text-[var(--ink-black)]">{g.name}</span>

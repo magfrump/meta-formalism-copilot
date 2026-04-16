@@ -201,7 +201,7 @@ export default function Home() {
 
   const counterexamples = useMemo(() => {
     if (!persistedCounterexamples) return null;
-    try { return JSON.parse(persistedCounterexamples) as import("@/app/lib/types/artifacts").CounterexamplesResponse["counterexamples"]; }
+    try { return JSON.parse(persistedCounterexamples) as import("@/app/lib/types/artifacts").CounterexamplesResponse["counterexamplesAnalysis"]; }
     catch { return null; }
   }, [persistedCounterexamples]);
 
@@ -273,7 +273,7 @@ export default function Home() {
   const counterexamplesLoading = artifactLoadingState["counterexamples"] === "generating";
 
   // --- Decomposition state ---
-  const { state: decomp, selectedNode, extractPropositions, selectNode, updateNode, resetState: resetDecomp, streamingNodes } = useDecomposition();
+  const { state: decomp, selectedNode, extractPropositions, selectNode, updateNode, resetState: resetDecomp, streamingNodes, addGraphNode, removeGraphNode, renameGraphNode, addGraphEdge, removeGraphEdge } = useDecomposition();
   const isDecompMode = decomp.nodes.length > 0 && selectedNode !== null;
 
   // --- Auto-formalize queue ---
@@ -662,7 +662,15 @@ export default function Home() {
 
   const handleSelectNode = useCallback((id: string) => {
     selectNode(id);
-    setActivePanelId("node-detail");
+    // If we're in split mode with the graph visible, open node-detail in the
+    // secondary panel so the graph stays visible for context.
+    if (secondaryPanelId !== null && activePanelId === "decomposition") {
+      setSecondaryPanelId("node-detail");
+    } else if (secondaryPanelId !== null && secondaryPanelId === "decomposition") {
+      setActivePanelId("node-detail");
+    } else {
+      setActivePanelId("node-detail");
+    }
     // Auto-select the most recent session for this node
     const node = decomp.nodes.find((n) => n.id === id);
     if (node) {
@@ -671,7 +679,18 @@ export default function Home() {
         selectSession(nodeSessions[0].id);
       }
     }
-  }, [selectNode, decomp.nodes, sessionsForScope, selectSession, setActivePanelId]);
+  }, [selectNode, decomp.nodes, sessionsForScope, selectSession, setActivePanelId, secondaryPanelId, activePanelId, setSecondaryPanelId]);
+
+  const handleAddNode = useCallback(() => {
+    const newId = addGraphNode({ label: "New node" });
+    handleSelectNode(newId);
+  }, [addGraphNode, handleSelectNode]);
+
+  const handleDeleteEdges = useCallback((edges: Array<{ source: string; target: string }>) => {
+    for (const edge of edges) {
+      removeGraphEdge(edge.source, edge.target);
+    }
+  }, [removeGraphEdge]);
 
   // Resolve dependencies for NodeDetailPanel
   const selectedNodeDeps = useMemo(() => {
@@ -796,6 +815,11 @@ export default function Home() {
             onPauseQueue={pauseQueue}
             onResumeQueue={resumeQueue}
             onCancelQueue={cancelQueue}
+            onAddNode={handleAddNode}
+            onDeleteNode={removeGraphNode}
+            onRenameNode={renameGraphNode}
+            onConnectNodes={addGraphEdge}
+            onDeleteEdges={handleDeleteEdges}
           />
         );
       case "node-detail":
@@ -892,6 +916,7 @@ export default function Home() {
     handleGenerate, handleGenerateLean, handleSemiformalTextChange, handleLeanCodeChange,
     activePipeline, isAnyGenerating,
     handleSelectNode, handleDecompose, handleNodeGenerate, handleNodeGenerateLean, updateNode,
+    handleAddNode, removeGraphNode, renameGraphNode, addGraphEdge, handleDeleteEdges,
     selectedArtifactTypes, artifactLoadingState,
     activeSession, allSessionsSorted, selectAndRestore,
     activeCausalGraph, causalGraphLoading, causalGraphWaitEstimate, streamingJsonPreview,

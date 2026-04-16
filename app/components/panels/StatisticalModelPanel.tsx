@@ -55,7 +55,7 @@ export default function StatisticalModelPanel({
   const evidenceSearchContent = useMemo(() => {
     if (!statisticalModel) return "";
     const parts = [statisticalModel.summary];
-    for (const h of statisticalModel.hypotheses.slice(0, 3)) {
+    for (const h of (statisticalModel.hypotheses ?? []).slice(0, 3)) {
       parts.push(h.statement);
     }
     return parts.filter(Boolean).join(". ");
@@ -88,9 +88,9 @@ export default function StatisticalModelPanel({
 
           {/* Variables */}
           {(displayModel.variables?.length ?? 0) > 0 && (
-          <CollapsibleSection title="Factors" defaultOpen={false} count={displayModel.variables.length}>
+          <CollapsibleSection title="Factors" defaultOpen={false} count={displayModel.variables?.length}>
             <div className="space-y-2">
-              {displayModel.variables.map((v, i) => (
+              {displayModel.variables?.map((v, i) => (
                 <EditableSection key={v.id} value={v} onChange={(newV) => updateArrayItem("variables", i, newV)}>
                   <div className="rounded border border-[#DDD9D5] bg-white px-3 py-2">
                     <div className="flex items-center gap-2">
@@ -110,9 +110,9 @@ export default function StatisticalModelPanel({
 
           {/* Hypotheses */}
           {(displayModel.hypotheses?.length ?? 0) > 0 && (
-          <CollapsibleSection title="Predictions" defaultOpen={false} count={displayModel.hypotheses.length}>
+          <CollapsibleSection title="Predictions" defaultOpen={false} count={displayModel.hypotheses?.length}>
             <div className="space-y-2">
-              {displayModel.hypotheses.map((h, i) => (
+              {displayModel.hypotheses?.map((h, i) => (
                 <EditableSection key={h.id} value={h} onChange={(newH) => updateArrayItem("hypotheses", i, newH)}>
                   <div className="rounded border border-[#DDD9D5] bg-white px-3 py-2">
                     <p className="text-sm font-medium text-[var(--ink-black)]">{h.statement}</p>
@@ -131,9 +131,9 @@ export default function StatisticalModelPanel({
 
           {/* Assumptions */}
           {(displayModel.assumptions?.length ?? 0) > 0 && (
-            <CollapsibleSection title="Assumptions" defaultOpen={false} count={displayModel.assumptions.length}>
+            <CollapsibleSection title="Assumptions" defaultOpen={false} count={displayModel.assumptions?.length}>
               <div className="space-y-1 pl-5">
-                {displayModel.assumptions.map((a, i) => (
+                {displayModel.assumptions?.map((a, i) => (
                   <EditableSection key={i} value={a} onChange={(newA) => updateArrayItem("assumptions", i, newA)}>
                     <p className="text-sm text-[var(--ink-black)] before:content-['•'] before:mr-2 before:text-[#9A9590]">{a}</p>
                   </EditableSection>
