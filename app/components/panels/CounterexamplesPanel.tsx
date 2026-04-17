@@ -32,11 +32,18 @@ type CounterexamplesPanelProps = {
   onContentChange?: (json: string) => void;
 } & ArtifactEditingProps & StalenessProps;
 
+// Support legacy persisted data that used "counterexamples" as the array field name
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getScenarios(data: any): CounterexamplesResponse["counterexamplesAnalysis"]["scenarios"] | undefined {
+  return data?.scenarios ?? data?.counterexamples;
+}
+
 export default function CounterexamplesPanel({
   counterexamples, loading,
   onContentChange, onAiEdit, editing, editWaitEstimate,
   isStale, onRegenerate,
 }: CounterexamplesPanelProps) {
+  const scenarios = getScenarios(counterexamples);
   const { updateField, updateArrayItem } = useFieldUpdaters(counterexamples, onContentChange);
 
   const artifactJson = useMemo(
@@ -48,11 +55,11 @@ export default function CounterexamplesPanel({
   const evidenceSearchContent = useMemo(() => {
     if (!counterexamples) return "";
     const parts = [counterexamples.claim];
-    for (const cx of (counterexamples.scenarios ?? []).slice(0, 3)) {
+    for (const cx of (scenarios ?? []).slice(0, 3)) {
       parts.push(cx.scenario);
     }
     return parts.filter(Boolean).join(". ");
-  }, [counterexamples]);
+  }, [counterexamples, scenarios]);
 
   return (
     <ArtifactPanelShell
@@ -86,9 +93,9 @@ export default function CounterexamplesPanel({
           </section>
 
           {/* Counterexamples */}
-          <CollapsibleSection title="Counterexamples" defaultOpen={false} count={counterexamples.scenarios?.length}>
+          <CollapsibleSection title="Counterexamples" defaultOpen={false} count={scenarios?.length}>
             <div className="space-y-3">
-              {counterexamples.scenarios?.map((cx, i) => (
+              {scenarios?.map((cx, i) => (
                 <EditableSection key={cx.id} value={cx} onChange={(newCx) => updateArrayItem("scenarios", i, newCx)}>
                   <div className="rounded border border-[#DDD9D5] bg-white px-3 py-2 space-y-2">
                     <div className="flex items-center gap-2">
